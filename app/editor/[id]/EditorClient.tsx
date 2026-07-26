@@ -18,11 +18,11 @@ import {
 import { AddItemModal } from "@/components/AddItemModal";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
-import { PlusIcon } from "@/components/icons";
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { PoolArea } from "@/components/PoolArea";
 import { TierRow } from "@/components/TierRow";
 import { POOL_ID } from "@/lib/constants";
-import { deleteBlob, loadTierList, saveBlob, saveTierList } from "@/lib/db";
+import { deleteBlob, listTierLists, loadTierList, saveBlob, saveTierList } from "@/lib/db";
 import { exportElementAsPng } from "@/lib/export";
 import { hydrateItems } from "@/lib/hydrate";
 import { BACKGROUND_COLOR_SWATCHES, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
@@ -65,6 +65,7 @@ export function EditorClient({ id }: EditorClientProps) {
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<TierItem | null>(null);
   const [activeItem, setActiveItem] = useState<TierItem | null>(null);
+  const [siblings, setSiblings] = useState<Array<{ id: string; title: string }>>([]);
   const exportRef = useRef<HTMLDivElement>(null);
   const bgPopoverRef = useRef<HTMLDivElement>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,6 +88,21 @@ export function EditorClient({ id }: EditorClientProps) {
       cancelled = true;
     };
   }, [id, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const all = await listTierLists();
+      if (cancelled) return;
+      const sorted = [...all].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+      setSiblings(sorted.map((d) => ({ id: d.id, title: d.title })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!doc) return;
@@ -362,9 +378,34 @@ export function EditorClient({ id }: EditorClientProps) {
   if (!doc) return null;
 
   const sortedTiers = [...doc.tiers].sort((a, b) => a.order - b.order);
+  const siblingIndex = siblings.findIndex((s) => s.id === id);
+  const prevSibling = siblingIndex > 0 ? siblings[siblingIndex - 1] : null;
+  const nextSibling =
+    siblingIndex >= 0 && siblingIndex < siblings.length - 1 ? siblings[siblingIndex + 1] : null;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-8">
+      {prevSibling && (
+        <button
+          onClick={() => router.push(`/editor/${prevSibling.id}`)}
+          title={`Précédente : ${prevSibling.title || "Sans titre"}`}
+          aria-label="Tier list précédente"
+          className="fixed left-3 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/90 text-zinc-300 shadow-lg backdrop-blur transition hover:bg-zinc-800 hover:text-white"
+        >
+          <ChevronLeftIcon className="h-5 w-5" />
+        </button>
+      )}
+      {nextSibling && (
+        <button
+          onClick={() => router.push(`/editor/${nextSibling.id}`)}
+          title={`Suivante : ${nextSibling.title || "Sans titre"}`}
+          aria-label="Tier list suivante"
+          className="fixed right-3 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/90 text-zinc-300 shadow-lg backdrop-blur transition hover:bg-zinc-800 hover:text-white"
+        >
+          <ChevronRightIcon className="h-5 w-5" />
+        </button>
+      )}
+
       <button
         onClick={() => router.push("/")}
         className="w-fit text-sm text-zinc-500 hover:text-zinc-300 hover:underline"
