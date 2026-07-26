@@ -9,6 +9,32 @@ export const DEFAULT_TIER_PRESET: Array<Pick<Tier, "label" | "color">> = [
   { label: "F", color: "#8d99ae" },
 ];
 
+export const TIER_COLOR_SWATCHES: string[] = [
+  "#e63946",
+  "#f4a259",
+  "#f6d55c",
+  "#7bc950",
+  "#2ec4b6",
+  "#4d96ff",
+  "#7b61ff",
+  "#e559c9",
+  "#ff6b9d",
+  "#8d99ae",
+];
+
+export const DEFAULT_BACKGROUND_COLOR = "#18181b";
+
+export const BACKGROUND_COLOR_SWATCHES: string[] = [
+  "#18181b",
+  "#000000",
+  "#0c0c0f",
+  "#1e293b",
+  "#3f2d1e",
+  "#1e2d24",
+  "#f4f4f5",
+  "#ffffff",
+];
+
 export function createTierList(title: string): TierListDoc {
   const now = new Date().toISOString();
   return {

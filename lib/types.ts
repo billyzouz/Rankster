@@ -18,6 +18,8 @@ export interface TierItem {
 export interface Tier {
   id: string;
   label: string;
+  /** Short descriptive text under the label, e.g. "Favori", "À éviter". */
+  subtitle?: string;
   color: string;
   order: number;
 }
@@ -27,6 +29,8 @@ export interface TierListDoc {
   title: string;
   tiers: Tier[];
   items: TierItem[];
+  /** Background color of the tier rows / pool; falls back to the app default when unset. */
+  backgroundColor?: string;
   createdAt: string;
   updatedAt: string;
 }

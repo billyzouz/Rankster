@@ -2,6 +2,7 @@
 
 import { extractYoutubeId, getYoutubeEmbedUrl } from "@/lib/youtube";
 import type { TierItem } from "@/lib/types";
+import { CloseIcon } from "./icons";
 
 interface LightboxProps {
   item: TierItem | null;
@@ -21,8 +22,8 @@ export function Lightbox({ item, onClose }: LightboxProps) {
       <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-center justify-between text-white">
           <p className="truncate font-medium">{item.label}</p>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-white/10" aria-label="Fermer">
-            ✕
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Fermer">
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
         {videoId ? (

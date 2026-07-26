@@ -5,54 +5,71 @@ import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
-  closestCenter,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { AddItemModal } from "@/components/AddItemModal";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
+import { PlusIcon } from "@/components/icons";
 import { PoolArea } from "@/components/PoolArea";
 import { TierRow } from "@/components/TierRow";
 import { POOL_ID } from "@/lib/constants";
-import { loadBlob, loadTierList, saveBlob, saveTierList } from "@/lib/db";
+import { deleteBlob, loadTierList, saveBlob, saveTierList } from "@/lib/db";
 import { exportElementAsPng } from "@/lib/export";
+import { hydrateItems } from "@/lib/hydrate";
+import { BACKGROUND_COLOR_SWATCHES, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
 import type { Tier, TierItem, TierListDoc } from "@/lib/types";
 import type { YoutubeMeta } from "@/lib/youtube";
+
+const NEW_TIER_COLOR = "#a78bfa";
 
 interface EditorClientProps {
   id: string;
 }
 
-async function hydrateItems(doc: TierListDoc): Promise<TierListDoc> {
-  const items = await Promise.all(
-    doc.items.map(async (item) => {
-      if (item.type === "image" && item.blobId) {
-        const blob = await loadBlob(item.blobId);
-        if (blob) return { ...item, thumbnailUrl: URL.createObjectURL(blob) };
-      }
-      return item;
-    }),
-  );
-  return { ...doc, items };
-}
+/**
+ * Prefer whatever droppable the pointer is literally over; closestCenter alone
+ * can resolve to the wrong tier row once rows are short and irregularly shaped
+ * (label chip + items + controls merged into one droppable per row).
+ */
+const collisionDetectionStrategy: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+  return rectIntersection(args);
+};
+
+/**
+ * Must stay referentially stable: an inline object literal here would give
+ * useSensors() a new array every render, and DndContext tears down (and
+ * re-attaches) its sensor listeners whenever `sensors` changes identity —
+ * including mid-drag, right after the re-render triggered by onDragStart.
+ */
+const POINTER_SENSOR_OPTIONS = { activationConstraint: { distance: 4 } };
+
+/** Same reasoning as POINTER_SENSOR_OPTIONS: must not be a fresh object every render. */
+const MEASURING_CONFIG = { droppable: { strategy: MeasuringStrategy.Always } };
 
 export function EditorClient({ id }: EditorClientProps) {
   const router = useRouter();
   const [doc, setDoc] = useState<TierListDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<TierItem | null>(null);
   const [activeItem, setActiveItem] = useState<TierItem | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const bgPopoverRef = useRef<HTMLDivElement>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, POINTER_SENSOR_OPTIONS));
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +98,17 @@ export function EditorClient({ id }: EditorClientProps) {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
   }, [doc]);
+
+  useEffect(() => {
+    if (!bgPickerOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (bgPopoverRef.current && !bgPopoverRef.current.contains(e.target as Node)) {
+        setBgPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [bgPickerOpen]);
 
   const containers = useMemo(() => {
     const map: Record<string, TierItem[]> = { [POOL_ID]: [] };
@@ -147,13 +175,27 @@ export function EditorClient({ id }: EditorClientProps) {
     });
   }
 
+  async function handleDeleteItem(itemId: string) {
+    const item = doc?.items.find((i) => i.id === itemId);
+    if (item?.blobId) {
+      await deleteBlob(item.blobId);
+    }
+    if (item?.thumbnailUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(item.thumbnailUrl);
+    }
+    if (lightboxItem?.id === itemId) {
+      setLightboxItem(null);
+    }
+    updateDoc((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== itemId) }));
+  }
+
   function handleAddTier() {
     updateDoc((prev) => {
       const maxOrder = prev.tiers.reduce((m, t) => Math.max(m, t.order), -1);
       const newTier: Tier = {
         id: crypto.randomUUID(),
         label: "Nouveau",
-        color: "#a78bfa",
+        color: NEW_TIER_COLOR,
         order: maxOrder + 1,
       };
       return { ...prev, tiers: [...prev.tiers, newTier] };
@@ -164,6 +206,13 @@ export function EditorClient({ id }: EditorClientProps) {
     updateDoc((prev) => ({
       ...prev,
       tiers: prev.tiers.map((t) => (t.id === tierId ? { ...t, label } : t)),
+    }));
+  }
+
+  function handleSubtitleChange(tierId: string, subtitle: string) {
+    updateDoc((prev) => ({
+      ...prev,
+      tiers: prev.tiers.map((t) => (t.id === tierId ? { ...t, subtitle } : t)),
     }));
   }
 
@@ -182,9 +231,74 @@ export function EditorClient({ id }: EditorClientProps) {
     }));
   }
 
+  function handleClearTier(tierId: string) {
+    updateDoc((prev) => {
+      let nextOrder = prev.items.filter((i) => i.tierId === null).length;
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.tierId === tierId ? { ...item, tierId: null, order: nextOrder++ } : item,
+        ),
+      };
+    });
+  }
+
+  function handleInsertTier(referenceTierId: string, position: "above" | "below") {
+    updateDoc((prev) => {
+      const sorted = [...prev.tiers].sort((a, b) => a.order - b.order);
+      const refIndex = sorted.findIndex((t) => t.id === referenceTierId);
+      if (refIndex === -1) return prev;
+      const insertIndex = position === "above" ? refIndex : refIndex + 1;
+      const newTier: Tier = {
+        id: crypto.randomUUID(),
+        label: "Nouveau",
+        color: NEW_TIER_COLOR,
+        order: 0,
+      };
+      const nextSorted = [...sorted];
+      nextSorted.splice(insertIndex, 0, newTier);
+      return { ...prev, tiers: nextSorted.map((t, index) => ({ ...t, order: index })) };
+    });
+  }
+
+  function handleResetAll() {
+    if (!confirm("Renvoyer tous les items dans le pool ?")) return;
+    updateDoc((prev) => ({
+      ...prev,
+      items: prev.items.map((item, index) => ({ ...item, tierId: null, order: index })),
+    }));
+  }
+
+  function handleSetBackgroundColor(color: string) {
+    updateDoc((prev) => ({ ...prev, backgroundColor: color }));
+  }
+
+  function handleMoveTier(tierId: string, direction: -1 | 1) {
+    updateDoc((prev) => {
+      const sorted = [...prev.tiers].sort((a, b) => a.order - b.order);
+      const index = sorted.findIndex((t) => t.id === tierId);
+      const swapIndex = index + direction;
+      if (index === -1 || swapIndex < 0 || swapIndex >= sorted.length) return prev;
+      const a = sorted[index];
+      const b = sorted[swapIndex];
+      return {
+        ...prev,
+        tiers: prev.tiers.map((t) => {
+          if (t.id === a.id) return { ...t, order: b.order };
+          if (t.id === b.id) return { ...t, order: a.order };
+          return t;
+        }),
+      };
+    });
+  }
+
   function handleDragStart(event: DragStartEvent) {
     const activeId = String(event.active.id);
     setActiveItem(doc?.items.find((i) => i.id === activeId) ?? null);
+  }
+
+  function handleDragCancel() {
+    setActiveItem(null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -251,60 +365,127 @@ export function EditorClient({ id }: EditorClientProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <button onClick={() => router.push("/")} className="text-sm text-zinc-500 hover:underline">
-          ← Mes tier lists
-        </button>
+      <button
+        onClick={() => router.push("/")}
+        className="w-fit text-sm text-zinc-500 hover:text-zinc-300 hover:underline"
+      >
+        ← Mes tier lists
+      </button>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <input
+          value={doc.title}
+          onChange={(e) => updateDoc((prev) => ({ ...prev, title: e.target.value }))}
+          className="min-w-0 flex-1 bg-transparent font-display text-3xl tracking-wide text-white outline-none"
+          placeholder="Titre de la tier list"
+        />
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setAddModalOpen(true)}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            className="flex items-center gap-1.5 rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
           >
-            + Ajouter un item
+            <PlusIcon className="h-4 w-4" />
+            Ajouter un item
           </button>
           <button
             onClick={handleAddTier}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
           >
             + Ajouter un tier
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setBgPickerOpen((open) => !open)}
+              className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+            >
+              Couleur de fond
+            </button>
+            {bgPickerOpen && (
+              <div
+                ref={bgPopoverRef}
+                className="absolute right-0 top-full z-20 mt-2 w-52 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl"
+              >
+                <p className="mb-2 text-xs font-medium text-zinc-400">Couleur de fond</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {BACKGROUND_COLOR_SWATCHES.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => handleSetBackgroundColor(color)}
+                      style={{ backgroundColor: color }}
+                      className={`h-6 w-6 rounded-full border border-zinc-700 ring-offset-2 ring-offset-zinc-900 transition ${
+                        (doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR) === color
+                          ? "ring-2 ring-white"
+                          : "hover:scale-110"
+                      }`}
+                      aria-label={`Fond ${color}`}
+                    />
+                  ))}
+                  <label className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-zinc-600 text-[10px] text-zinc-400 hover:border-zinc-400">
+                    +
+                    <input
+                      type="color"
+                      value={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
+                      onChange={(e) => handleSetBackgroundColor(e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleResetAll}
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+          >
+            Réinitialiser
+          </button>
           <button
             onClick={handleExport}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
           >
             Exporter en PNG
           </button>
         </div>
-      </header>
-
-      <input
-        value={doc.title}
-        onChange={(e) => updateDoc((prev) => ({ ...prev, title: e.target.value }))}
-        className="w-full bg-transparent text-2xl font-bold outline-none"
-        placeholder="Titre de la tier list"
-      />
+      </div>
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetectionStrategy}
+        measuring={MEASURING_CONFIG}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
-        <div ref={exportRef} className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800">
-          {sortedTiers.map((tier) => (
+        <div ref={exportRef} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+          {sortedTiers.map((tier, index) => (
             <TierRow
               key={tier.id}
               tier={tier}
               items={containers[tier.id] ?? []}
+              backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
               onRename={(label) => handleRenameTier(tier.id, label)}
+              onSubtitleChange={(subtitle) => handleSubtitleChange(tier.id, subtitle)}
               onRecolor={(color) => handleRecolorTier(tier.id, color)}
               onDelete={() => handleDeleteTier(tier.id)}
+              onClearItems={() => handleClearTier(tier.id)}
+              onInsertAbove={() => handleInsertTier(tier.id, "above")}
+              onInsertBelow={() => handleInsertTier(tier.id, "below")}
               onItemClick={setLightboxItem}
+              onItemDelete={handleDeleteItem}
+              onMoveUp={() => handleMoveTier(tier.id, -1)}
+              onMoveDown={() => handleMoveTier(tier.id, 1)}
+              canMoveUp={index > 0}
+              canMoveDown={index < sortedTiers.length - 1}
             />
           ))}
         </div>
 
-        <PoolArea items={containers[POOL_ID] ?? []} onItemClick={setLightboxItem} />
+        <PoolArea
+          items={containers[POOL_ID] ?? []}
+          onItemClick={setLightboxItem}
+          onItemDelete={handleDeleteItem}
+          backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
+        />
 
         <DragOverlay>{activeItem ? <ItemThumbnail item={activeItem} /> : null}</DragOverlay>
       </DndContext>

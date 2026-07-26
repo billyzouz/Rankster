@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { fetchYoutubeMeta, type YoutubeMeta } from "@/lib/youtube";
+import { CloseIcon } from "./icons";
 
 interface AddItemModalProps {
   open: boolean;
@@ -52,28 +53,28 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Ajouter un item</h2>
+          <h2 className="text-lg font-semibold text-white">Ajouter un item</h2>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
             aria-label="Fermer"
           >
-            ✕
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mb-4 flex gap-2 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+        <div className="mb-4 flex gap-2 rounded-lg bg-zinc-800 p-1">
           <button
             className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
-              tab === "image" ? "bg-white shadow dark:bg-zinc-700" : "text-zinc-500"
+              tab === "image" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
             }`}
             onClick={() => setTab("image")}
           >
@@ -81,7 +82,7 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
           </button>
           <button
             className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
-              tab === "youtube" ? "bg-white shadow dark:bg-zinc-700" : "text-zinc-500"
+              tab === "youtube" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
             }`}
             onClick={() => setTab("youtube")}
           >
@@ -92,9 +93,7 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
         {tab === "image" ? (
           <div
             className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center text-sm transition ${
-              isDragging
-                ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30"
-                : "border-zinc-300 dark:border-zinc-700"
+              isDragging ? "border-ember bg-ember/10" : "border-zinc-700"
             }`}
             onDragOver={(e) => {
               e.preventDefault();
@@ -107,10 +106,10 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
               if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
             }}
           >
-            <p className="text-zinc-500">Glisse des images ici, ou</p>
+            <p className="text-zinc-400">Glisse des images ici, ou</p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+              className="rounded-md bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember-hover"
             >
               Choisir des fichiers
             </button>
@@ -125,6 +124,9 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
                 e.target.value = "";
               }}
             />
+            <p className="text-xs text-zinc-500">
+              Tes images restent sur cet appareil — rien n&apos;est envoyé à un serveur.
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -137,29 +139,29 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
                   if (e.key === "Enter") handlePreview();
                 }}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
               />
               <button
                 onClick={handlePreview}
                 disabled={youtubeLoading || !youtubeUrl.trim()}
-                className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-zinc-700"
+                className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
               >
                 {youtubeLoading ? "..." : "Aperçu"}
               </button>
             </div>
-            {youtubeError && <p className="text-sm text-red-500">{youtubeError}</p>}
+            {youtubeError && <p className="text-sm text-red-400">{youtubeError}</p>}
             {preview && (
-              <div className="flex items-center gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+              <div className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={preview.thumbnailUrl}
                   alt={preview.title}
                   className="h-16 w-28 shrink-0 rounded object-cover"
                 />
-                <p className="line-clamp-2 flex-1 text-sm font-medium">{preview.title}</p>
+                <p className="line-clamp-2 flex-1 text-sm font-medium text-white">{preview.title}</p>
                 <button
                   onClick={handleConfirmAdd}
-                  className="shrink-0 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+                  className="shrink-0 rounded-md bg-ember px-3 py-1.5 text-sm font-medium text-white transition hover:bg-ember-hover"
                 >
                   Ajouter
                 </button>
