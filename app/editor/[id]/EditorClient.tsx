@@ -16,18 +16,24 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { AddItemModal, type PendingImageItem } from "@/components/AddItemModal";
+import { useAuth } from "@/components/AuthProvider";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { PoolArea } from "@/components/PoolArea";
 import { TierRow } from "@/components/TierRow";
 import { POOL_ID } from "@/lib/constants";
-import { deleteBlob, listTierLists, loadTierList, saveBlob, saveTierList } from "@/lib/db";
+import { deleteImage, deleteTierList, listTierLists, loadTierList, saveTierList, uploadImage } from "@/lib/db";
 import { exportElementAsPng } from "@/lib/export";
-import { hydrateItems } from "@/lib/hydrate";
-import { BACKGROUND_COLOR_SWATCHES, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
-import type { Tier, TierItem, TierListDoc } from "@/lib/types";
+import { BACKGROUND_COLOR_SWATCHES, cloneTierList, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
+import type { Tier, TierItem, TierListDoc, Visibility } from "@/lib/types";
 import type { YoutubeMeta } from "@/lib/youtube";
+
+const VISIBILITY_OPTIONS: Array<{ value: Visibility; label: string }> = [
+  { value: "private", label: "Privée" },
+  { value: "unlisted", label: "Non répertoriée" },
+  { value: "public", label: "Publique" },
+];
 
 const NEW_TIER_COLOR = "#a78bfa";
 
@@ -59,6 +65,7 @@ const MEASURING_CONFIG = { droppable: { strategy: MeasuringStrategy.Always } };
 
 export function EditorClient({ id }: EditorClientProps) {
   const router = useRouter();
+  const { user, isAdmin } = useAuth();
   const [doc, setDoc] = useState<TierListDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -78,7 +85,15 @@ export function EditorClient({ id }: EditorClientProps) {
       const existing = await loadTierList(id);
       if (cancelled) return;
       if (existing) {
-        setDoc(await hydrateItems(existing));
+        const owned = existing.ownerId === user?.id;
+        setDoc(
+          owned
+            ? existing
+            : {
+                ...existing,
+                items: existing.items.map((item, index) => ({ ...item, tierId: null, order: index })),
+              },
+        );
       } else {
         router.replace("/");
       }
@@ -87,14 +102,16 @@ export function EditorClient({ id }: EditorClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [id, router]);
+  }, [id, router, user?.id]);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
     (async () => {
       const all = await listTierLists();
       if (cancelled) return;
-      const sorted = [...all].sort(
+      const mine = all.filter((d) => d.ownerId === user.id);
+      const sorted = [...mine].sort(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       );
       setSiblings(sorted.map((d) => ({ id: d.id, title: d.title })));
@@ -102,10 +119,12 @@ export function EditorClient({ id }: EditorClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user]);
+
+  const isOwner = doc?.ownerId === user?.id;
 
   useEffect(() => {
-    if (!doc) return;
+    if (!doc || !isOwner) return;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(() => {
       saveTierList(doc);
@@ -113,7 +132,7 @@ export function EditorClient({ id }: EditorClientProps) {
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
-  }, [doc]);
+  }, [doc, isOwner]);
 
   useEffect(() => {
     if (!bgPickerOpen) return;
@@ -154,16 +173,16 @@ export function EditorClient({ id }: EditorClientProps) {
   }
 
   async function handleAddImages(items: PendingImageItem[]) {
+    if (!user) return;
     const newItems: TierItem[] = [];
     for (const { file, label } of items) {
-      const blobId = crypto.randomUUID();
-      await saveBlob(blobId, file);
+      const { path, url } = await uploadImage(file, user.id);
       newItems.push({
         id: crypto.randomUUID(),
         type: "image",
         label,
-        thumbnailUrl: URL.createObjectURL(file),
-        blobId,
+        thumbnailUrl: url,
+        storagePath: path,
         tierId: null,
         order: 0,
       });
@@ -193,11 +212,8 @@ export function EditorClient({ id }: EditorClientProps) {
 
   async function handleDeleteItem(itemId: string) {
     const item = doc?.items.find((i) => i.id === itemId);
-    if (item?.blobId) {
-      await deleteBlob(item.blobId);
-    }
-    if (item?.thumbnailUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(item.thumbnailUrl);
+    if (item?.storagePath) {
+      await deleteImage(item.storagePath);
     }
     if (lightboxItem?.id === itemId) {
       setLightboxItem(null);
@@ -289,6 +305,10 @@ export function EditorClient({ id }: EditorClientProps) {
     updateDoc((prev) => ({ ...prev, backgroundColor: color }));
   }
 
+  function handleSetVisibility(visibility: Visibility) {
+    updateDoc((prev) => ({ ...prev, visibility }));
+  }
+
   function handleMoveTier(tierId: string, direction: -1 | 1) {
     updateDoc((prev) => {
       const sorted = [...prev.tiers].sort((a, b) => a.order - b.order);
@@ -372,6 +392,24 @@ export function EditorClient({ id }: EditorClientProps) {
     await exportElementAsPng(exportRef.current, doc.title || "tier-list");
   }
 
+  async function handleDeleteAsAdmin() {
+    if (!doc) return;
+    if (!confirm(`Supprimer la tier list "${doc.title || "Sans titre"}" de ${doc.ownerUsername ?? "?"} ?`)) return;
+    await deleteTierList(doc.id);
+    router.push("/");
+  }
+
+  async function handleSaveAsCopy() {
+    if (!doc) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    const copy = cloneTierList(doc, `${doc.title} (ma version)`, user.id);
+    await saveTierList(copy);
+    router.push(`/editor/${copy.id}`);
+  }
+
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Chargement...</div>;
   }
@@ -417,69 +455,115 @@ export function EditorClient({ id }: EditorClientProps) {
         <input
           value={doc.title}
           onChange={(e) => updateDoc((prev) => ({ ...prev, title: e.target.value }))}
+          readOnly={!isOwner}
           className="min-w-0 flex-1 bg-transparent font-display text-3xl tracking-wide text-white outline-none"
           placeholder="Titre de la tier list"
         />
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Ajouter un item
-          </button>
-          <button
-            onClick={handleAddTier}
-            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
-          >
-            + Ajouter un tier
-          </button>
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          {!isOwner && (
+            <span className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-400">
+              Classe-la à ta façon · par {doc.ownerUsername ?? "?"}
+            </span>
+          )}
+          {!isOwner && (
             <button
-              onClick={() => setBgPickerOpen((open) => !open)}
+              onClick={handleSaveAsCopy}
+              title="Enregistrer ton classement dans une copie privée"
+              className="rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
+            >
+              {user ? "Sauvegarder ma version" : "Se connecter pour sauvegarder"}
+            </button>
+          )}
+          {!isOwner && isAdmin && (
+            <button
+              onClick={handleDeleteAsAdmin}
+              title="Supprimer cette tier list (admin)"
+              className="rounded-md border border-red-900 px-3 py-2 text-sm font-medium text-red-400 transition hover:bg-red-500/10"
+            >
+              Supprimer (admin)
+            </button>
+          )}
+          {isOwner && (
+            <select
+              value={doc.visibility}
+              onChange={(e) => handleSetVisibility(e.target.value as Visibility)}
+              className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-200 outline-none transition hover:bg-zinc-800"
+              title="Qui peut voir cette tier list"
+            >
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Ajouter un item
+            </button>
+          )}
+          {isOwner && (
+            <button
+              onClick={handleAddTier}
               className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
             >
-              Couleur de fond
+              + Ajouter un tier
             </button>
-            {bgPickerOpen && (
-              <div
-                ref={bgPopoverRef}
-                className="absolute right-0 top-full z-20 mt-2 w-52 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl"
+          )}
+          {isOwner && (
+            <div className="relative">
+              <button
+                onClick={() => setBgPickerOpen((open) => !open)}
+                className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
               >
-                <p className="mb-2 text-xs font-medium text-zinc-400">Couleur de fond</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {BACKGROUND_COLOR_SWATCHES.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => handleSetBackgroundColor(color)}
-                      style={{ backgroundColor: color }}
-                      className={`h-6 w-6 rounded-full border border-zinc-700 ring-offset-2 ring-offset-zinc-900 transition ${
-                        (doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR) === color
-                          ? "ring-2 ring-white"
-                          : "hover:scale-110"
-                      }`}
-                      aria-label={`Fond ${color}`}
-                    />
-                  ))}
-                  <label className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-zinc-600 text-[10px] text-zinc-400 hover:border-zinc-400">
-                    +
-                    <input
-                      type="color"
-                      value={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
-                      onChange={(e) => handleSetBackgroundColor(e.target.value)}
-                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                    />
-                  </label>
+                Couleur de fond
+              </button>
+              {bgPickerOpen && (
+                <div
+                  ref={bgPopoverRef}
+                  className="absolute right-0 top-full z-20 mt-2 w-52 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl"
+                >
+                  <p className="mb-2 text-xs font-medium text-zinc-400">Couleur de fond</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {BACKGROUND_COLOR_SWATCHES.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => handleSetBackgroundColor(color)}
+                        style={{ backgroundColor: color }}
+                        className={`h-6 w-6 rounded-full border border-zinc-700 ring-offset-2 ring-offset-zinc-900 transition ${
+                          (doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR) === color
+                            ? "ring-2 ring-white"
+                            : "hover:scale-110"
+                        }`}
+                        aria-label={`Fond ${color}`}
+                      />
+                    ))}
+                    <label className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-zinc-600 text-[10px] text-zinc-400 hover:border-zinc-400">
+                      +
+                      <input
+                        type="color"
+                        value={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
+                        onChange={(e) => handleSetBackgroundColor(e.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      />
+                    </label>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={handleResetAll}
-            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
-          >
-            Réinitialiser
-          </button>
+              )}
+            </div>
+          )}
+          {isOwner && (
+            <button
+              onClick={handleResetAll}
+              className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+            >
+              Réinitialiser
+            </button>
+          )}
           <button
             onClick={handleExport}
             className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
@@ -504,6 +588,7 @@ export function EditorClient({ id }: EditorClientProps) {
               tier={tier}
               items={containers[tier.id] ?? []}
               backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
+              readOnly={!isOwner}
               onRename={(label) => handleRenameTier(tier.id, label)}
               onRecolor={(color) => handleRecolorTier(tier.id, color)}
               onDelete={() => handleDeleteTier(tier.id)}
@@ -525,6 +610,7 @@ export function EditorClient({ id }: EditorClientProps) {
           onItemClick={setLightboxItem}
           onItemDelete={handleDeleteItem}
           backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
+          readOnly={!isOwner}
         />
 
         <DragOverlay>{activeItem ? <ItemThumbnail item={activeItem} /> : null}</DragOverlay>
@@ -537,7 +623,12 @@ export function EditorClient({ id }: EditorClientProps) {
         onAddYoutube={handleAddYoutube}
       />
 
-      <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} onRename={handleRenameItem} />
+      <Lightbox
+        item={lightboxItem}
+        onClose={() => setLightboxItem(null)}
+        onRename={handleRenameItem}
+        readOnly={!isOwner}
+      />
     </div>
   );
 }

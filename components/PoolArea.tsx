@@ -13,9 +13,16 @@ interface PoolAreaProps {
   onItemClick: (item: TierItem) => void;
   onItemDelete: (itemId: string) => void;
   backgroundColor: string;
+  readOnly?: boolean;
 }
 
-export function PoolArea({ items, onItemClick, onItemDelete, backgroundColor }: PoolAreaProps) {
+export function PoolArea({
+  items,
+  onItemClick,
+  onItemDelete,
+  backgroundColor,
+  readOnly = false,
+}: PoolAreaProps) {
   const { setNodeRef } = useDroppable({ id: POOL_ID });
   const [query, setQuery] = useState("");
 
@@ -47,7 +54,9 @@ export function PoolArea({ items, onItemClick, onItemDelete, backgroundColor }: 
         <SortableContext id={POOL_ID} items={filtered.map((i) => i.id)} strategy={rectSortingStrategy}>
           {items.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              Ajoute des images ou des vidéos YouTube avec le bouton ci-dessus.
+              {readOnly
+                ? "Cette tier list ne contient aucun item pour l'instant."
+                : "Ajoute des images ou des vidéos YouTube avec le bouton ci-dessus."}
             </p>
           ) : filtered.length === 0 ? (
             <p className="text-sm text-zinc-500">{`Aucun item ne correspond à "${query}".`}</p>
@@ -57,7 +66,7 @@ export function PoolArea({ items, onItemClick, onItemDelete, backgroundColor }: 
                 key={item.id}
                 item={item}
                 onClick={() => onItemClick(item)}
-                onDelete={() => onItemDelete(item.id)}
+                onDelete={readOnly ? undefined : () => onItemDelete(item.id)}
               />
             ))
           )}

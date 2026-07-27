@@ -16,6 +16,7 @@ interface TierRowProps {
   tier: Tier;
   items: TierItem[];
   backgroundColor: string;
+  readOnly?: boolean;
   onRename: (label: string) => void;
   onRecolor: (color: string) => void;
   onDelete: () => void;
@@ -34,6 +35,7 @@ export function TierRow({
   tier,
   items,
   backgroundColor,
+  readOnly = false,
   onRename,
   onRecolor,
   onDelete,
@@ -88,6 +90,7 @@ export function TierRow({
         <input
           value={tier.label}
           onChange={(e) => onRename(e.target.value)}
+          readOnly={readOnly}
           className="w-full bg-transparent text-center font-display text-2xl tracking-wide text-white outline-none placeholder:text-white/70"
           maxLength={12}
         />
@@ -103,39 +106,40 @@ export function TierRow({
               key={item.id}
               item={item}
               onClick={() => onItemClick(item)}
-              onDelete={() => onItemDelete(item.id)}
+              onDelete={readOnly ? undefined : () => onItemDelete(item.id)}
             />
           ))}
         </SortableContext>
       </div>
 
-      <div className="relative flex w-11 shrink-0 flex-col items-center justify-center gap-1 border-l border-zinc-800 bg-black py-1.5">
-        <button
-          ref={gearButtonRef}
-          onClick={toggleSettings}
-          title="Réglages du tier"
-          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
-        >
-          <GearIcon className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onMoveUp}
-          disabled={!canMoveUp}
-          title="Monter ce tier"
-          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
-        >
-          <ChevronUpIcon className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onMoveDown}
-          disabled={!canMoveDown}
-          title="Descendre ce tier"
-          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
-        >
-          <ChevronDownIcon className="h-4 w-4" />
-        </button>
+      {!readOnly && (
+        <div className="relative flex w-11 shrink-0 flex-col items-center justify-center gap-1 border-l border-zinc-800 bg-black py-1.5">
+          <button
+            ref={gearButtonRef}
+            onClick={toggleSettings}
+            title="Réglages du tier"
+            className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+          >
+            <GearIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            title="Monter ce tier"
+            className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            <ChevronUpIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            title="Descendre ce tier"
+            className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            <ChevronDownIcon className="h-4 w-4" />
+          </button>
 
-        {settingsOpen &&
+          {settingsOpen &&
           popoverPos &&
           createPortal(
             <div
@@ -211,7 +215,8 @@ export function TierRow({
             </div>,
             document.body,
           )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

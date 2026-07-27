@@ -35,10 +35,11 @@ export const BACKGROUND_COLOR_SWATCHES: string[] = [
   "#ffffff",
 ];
 
-export function createTierList(title: string): TierListDoc {
+export function createTierList(title: string, ownerId: string): TierListDoc {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
+    ownerId,
     title,
     tiers: DEFAULT_TIER_PRESET.map((preset, index) => ({
       id: crypto.randomUUID(),
@@ -47,12 +48,13 @@ export function createTierList(title: string): TierListDoc {
       order: index,
     })),
     items: [],
+    visibility: "private",
     createdAt: now,
     updatedAt: now,
   };
 }
 
-export function cloneTierList(doc: TierListDoc, title: string): TierListDoc {
+export function cloneTierList(doc: TierListDoc, title: string, ownerId: string): TierListDoc {
   const now = new Date().toISOString();
   const tierIdMap = new Map<string, string>();
   const tiers = doc.tiers.map((tier) => {
@@ -68,9 +70,12 @@ export function cloneTierList(doc: TierListDoc, title: string): TierListDoc {
   return {
     ...doc,
     id: crypto.randomUUID(),
+    ownerId,
+    ownerUsername: undefined,
     title,
     tiers,
     items,
+    visibility: "private",
     createdAt: now,
     updatedAt: now,
   };

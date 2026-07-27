@@ -1,50 +1,83 @@
-import { createStore, del, get, keys, set } from "idb-keyval";
-import type { UseStore } from "idb-keyval";
-import type { TierListDoc } from "./types";
+import { supabase } from "./supabase";
+import type { Tier, TierItem, TierListDoc, Visibility } from "./types";
 
-let listStore: UseStore | undefined;
-let blobStore: UseStore | undefined;
+const BUCKET = "tier-list-images";
 
-function getListStore(): UseStore {
-  if (!listStore) listStore = createStore("tierlist-app", "tierlists");
-  return listStore;
+interface TierListRow {
+  id: string;
+  owner_id: string;
+  title: string;
+  tiers: Tier[];
+  items: TierItem[];
+  background_color: string | null;
+  visibility: Visibility;
+  created_at: string;
+  updated_at: string;
+  profiles: { username: string } | null;
 }
 
-function getBlobStore(): UseStore {
-  if (!blobStore) blobStore = createStore("tierlist-app-blobs", "blobs");
-  return blobStore;
+function rowToDoc(row: TierListRow): TierListDoc {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    ownerUsername: row.profiles?.username,
+    title: row.title,
+    tiers: row.tiers,
+    items: row.items,
+    backgroundColor: row.background_color ?? undefined,
+    visibility: row.visibility,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export async function saveTierList(doc: TierListDoc): Promise<void> {
-  await set(doc.id, doc, getListStore());
+  const { error } = await supabase.from("tier_lists").upsert({
+    id: doc.id,
+    owner_id: doc.ownerId,
+    title: doc.title,
+    tiers: doc.tiers,
+    items: doc.items,
+    background_color: doc.backgroundColor ?? null,
+    visibility: doc.visibility,
+  });
+  if (error) throw error;
 }
 
 export async function loadTierList(id: string): Promise<TierListDoc | undefined> {
-  return get<TierListDoc>(id, getListStore());
+  const { data, error } = await supabase
+    .from("tier_lists")
+    .select("*, profiles(username)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToDoc(data as TierListRow) : undefined;
 }
 
 export async function deleteTierList(id: string): Promise<void> {
-  await del(id, getListStore());
+  const { error } = await supabase.from("tier_lists").delete().eq("id", id);
+  if (error) throw error;
 }
 
+/** Every tier list visible to the current user: their own (any visibility) plus others' public/unlisted ones. */
 export async function listTierLists(): Promise<TierListDoc[]> {
-  const allKeys = await keys(getListStore());
-  const docs = await Promise.all(
-    allKeys.map((key) => get<TierListDoc>(key as string, getListStore())),
-  );
-  return docs
-    .filter((doc): doc is TierListDoc => Boolean(doc))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const { data, error } = await supabase
+    .from("tier_lists")
+    .select("*, profiles(username)")
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data as TierListRow[]).map(rowToDoc);
 }
 
-export async function saveBlob(id: string, blob: Blob): Promise<void> {
-  await set(id, blob, getBlobStore());
+export async function uploadImage(file: File, ownerId: string): Promise<{ path: string; url: string }> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${ownerId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+  if (error) throw error;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { path, url: data.publicUrl };
 }
 
-export async function loadBlob(id: string): Promise<Blob | undefined> {
-  return get<Blob>(id, getBlobStore());
-}
-
-export async function deleteBlob(id: string): Promise<void> {
-  await del(id, getBlobStore());
+export async function deleteImage(path: string): Promise<void> {
+  await supabase.storage.from(BUCKET).remove([path]);
 }

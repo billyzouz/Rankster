@@ -9,9 +9,10 @@ interface LightboxProps {
   item: TierItem | null;
   onClose: () => void;
   onRename: (itemId: string, label: string) => void;
+  readOnly?: boolean;
 }
 
-export function Lightbox({ item, onClose, onRename }: LightboxProps) {
+export function Lightbox({ item, onClose, onRename, readOnly = false }: LightboxProps) {
   const [draftLabel, setDraftLabel] = useState(item?.label ?? "");
   const [lastItemId, setLastItemId] = useState(item?.id ?? null);
 
@@ -37,6 +38,7 @@ export function Lightbox({ item, onClose, onRename }: LightboxProps) {
               setDraftLabel(e.target.value);
               onRename(item.id, e.target.value);
             }}
+            readOnly={readOnly}
             placeholder="Nom de l'item"
             className="min-w-0 flex-1 truncate bg-transparent font-medium outline-none placeholder:text-white/40"
           />

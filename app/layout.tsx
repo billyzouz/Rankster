@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, Geist, Geist_Mono } from "next/font/google";
-import { Header } from "@/components/Header";
+import { AppChrome } from "@/components/AppChrome";
+import { AuthProvider } from "@/components/AuthProvider";
 import { SearchProvider } from "@/components/SearchProvider";
 import "./globals.css";
 
@@ -36,10 +37,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-ink text-zinc-100">
-        <SearchProvider>
-          <Header />
-          <main className="flex flex-1 flex-col">{children}</main>
-        </SearchProvider>
+        <AuthProvider>
+          <SearchProvider>
+            <AppChrome>{children}</AppChrome>
+          </SearchProvider>
+        </AuthProvider>
       </body>
     </html>
   );

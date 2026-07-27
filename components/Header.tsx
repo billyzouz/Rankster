@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { useAuth } from "./AuthProvider";
 import { useSearch } from "./SearchProvider";
 import { PlusIcon, SearchIcon } from "./icons";
 import { saveTierList } from "@/lib/db";
@@ -10,6 +11,7 @@ import { createTierList } from "@/lib/tierlist";
 
 export function Header() {
   const router = useRouter();
+  const { user, signOut } = useAuth();
   const { query, setQuery } = useSearch();
   const [searchOpen, setSearchOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -25,17 +27,25 @@ export function Header() {
   }
 
   async function handleCreate() {
-    const doc = createTierList("Nouvelle tier list");
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    const doc = createTierList("Nouvelle tier list", user.id);
     await saveTierList(doc);
     router.push(`/editor/${doc.id}`);
   }
 
+  async function handleSignOut() {
+    await signOut();
+    router.push("/login");
+  }
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-zinc-800 bg-black px-4 sm:px-6">
-      <Link href="/" className="flex shrink-0 items-center gap-2.5 text-white">
-        <span className="flex h-8 w-8 -rotate-6 items-center justify-center rounded-md bg-ember font-display text-xl leading-none text-white shadow-sm shadow-ember/30">
-          S
-        </span>
+      <Link href="/" className="flex shrink-0 items-center gap-2 text-white">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-icon.png" alt="" className="h-9 w-auto" />
         <span className="font-display text-2xl leading-none tracking-wide">Rankster</span>
       </Link>
 
@@ -81,6 +91,24 @@ export function Header() {
           <PlusIcon className="h-4 w-4" />
           <span className="hidden sm:inline">Créer une tier list</span>
         </button>
+
+        {user ? (
+          <button
+            onClick={handleSignOut}
+            title="Se déconnecter"
+            className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          >
+            <span className="hidden text-sm sm:inline">Déconnexion</span>
+            <span className="sm:hidden">⏻</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => router.push("/login")}
+            className="flex shrink-0 items-center rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+          >
+            Connexion
+          </button>
+        )}
       </div>
     </header>
   );

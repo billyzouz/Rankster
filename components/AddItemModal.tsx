@@ -163,7 +163,7 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
                 }}
               />
               <p className="text-xs text-zinc-500">
-                Tes images restent sur cet appareil — rien n&apos;est envoyé à un serveur.
+                Selon la visibilité de la tier list, tes images pourront être visibles par d&apos;autres personnes.
               </p>
             </div>
 
