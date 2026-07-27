@@ -22,6 +22,7 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://rankster.fr"),
   title: "Rankster — crée et classe tes tier lists",
   description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
 };
@@ -33,7 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="fr"
       className={`${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-ink text-zinc-100">
