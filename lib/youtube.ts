@@ -52,6 +52,28 @@ export async function fetchYoutubeMeta(url: string): Promise<YoutubeMeta> {
   return { videoId, title: "Vidéo YouTube", thumbnailUrl: fallbackThumbnail, sourceUrl };
 }
 
+/**
+ * Anime OP/ED playlists are near-universally titled "<Show> - Opening 4 [4K ...]"
+ * or "<Show> OP4" — this pulls out just the "Opening 4" / "Ending 13 v2" part so
+ * imported items get a clean, consistent label instead of the full YouTube title.
+ * Returns null (keep the original title) when no such pattern is found.
+ */
+export function guessOpeningEndingLabel(title: string): string | null {
+  const full = title.match(/(?:^|[-:|–—])\s*(Opening|Ending)\b[\s:–-]*(\d+)?\s*(v\d+)?/i);
+  if (full) {
+    const kind = full[1].toLowerCase() === "opening" ? "Opening" : "Ending";
+    const number = full[2] ? ` ${full[2]}` : "";
+    const version = full[3] ? ` ${full[3].toLowerCase()}` : "";
+    return `${kind}${number}${version}`;
+  }
+  const short = title.match(/\b(OP|ED)\s*\.?\s*(\d+)\b/);
+  if (short) {
+    const kind = short[1] === "OP" ? "Opening" : "Ending";
+    return `${kind} ${short[2]}`;
+  }
+  return null;
+}
+
 export function getYoutubeEmbedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
 }

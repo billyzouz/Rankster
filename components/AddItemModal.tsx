@@ -5,6 +5,7 @@ import {
   extractYoutubePlaylistId,
   fetchYoutubeMeta,
   fetchYoutubePlaylistItems,
+  guessOpeningEndingLabel,
   type YoutubeMeta,
 } from "@/lib/youtube";
 import { CloseIcon } from "./icons";
@@ -88,10 +89,12 @@ export function AddItemModal({
     try {
       if (extractYoutubePlaylistId(youtubeUrl)) {
         const items = await fetchYoutubePlaylistItems(youtubeUrl);
-        setPendingPlaylist(items);
+        setPendingPlaylist(
+          items.map((item) => ({ ...item, title: guessOpeningEndingLabel(item.title) ?? item.title })),
+        );
       } else {
         const meta = await fetchYoutubeMeta(youtubeUrl);
-        setPreview(meta);
+        setPreview({ ...meta, title: guessOpeningEndingLabel(meta.title) ?? meta.title });
       }
     } catch (err) {
       setYoutubeError(err instanceof Error ? err.message : "Impossible de charger ce lien YouTube.");
