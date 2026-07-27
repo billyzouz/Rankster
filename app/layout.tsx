@@ -21,10 +21,26 @@ const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
 });
 
+const SITE_TITLE = "Rankster — crée tes tier lists et classe celles des autres";
+const SITE_DESCRIPTION =
+  "Crée des tier lists avec tes images et vidéos YouTube, classe celles des autres à ta façon, et compare tes classements avec tes amis — sans même créer de compte.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://rankster.fr"),
-  title: "Rankster — crée et classe tes tier lists",
-  description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: "Rankster",
+    type: "website",
+    locale: "fr_FR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 const jsonLd = {
@@ -32,7 +48,7 @@ const jsonLd = {
   "@type": "WebSite",
   name: "Rankster",
   url: "https://rankster.fr",
-  description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
+  description: SITE_DESCRIPTION,
 };
 
 export default function RootLayout({
