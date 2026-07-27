@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { compareTierLists, type ComparisonSummary } from "@/lib/compare";
-import { loadTierList } from "@/lib/db";
-import type { TierListDoc } from "@/lib/types";
+import { compareTierLists, type ComparisonSummary, type RankedList } from "@/lib/compare";
+import { loadComparisonSnapshot } from "@/lib/comparisonSnapshot";
 import { CloseIcon } from "./icons";
 
 interface CompareModalProps {
-  mine: TierListDoc;
-  compareListId: string;
+  mine: RankedList;
+  code: string;
   onClose: () => void;
 }
 
@@ -19,19 +18,19 @@ const MATCH_LABEL: Record<ComparisonSummary["rows"][number]["match"], string> = 
   pending: "Pas encore classé des deux côtés",
 };
 
-export function CompareModal({ mine, compareListId, onClose }: CompareModalProps) {
-  const [theirs, setTheirs] = useState<TierListDoc | null | undefined>(undefined);
+export function CompareModal({ mine, code, onClose }: CompareModalProps) {
+  const [theirs, setTheirs] = useState<RankedList | null | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const doc = await loadTierList(compareListId);
-      if (!cancelled) setTheirs(doc ?? null);
+      const snapshot = await loadComparisonSnapshot(code);
+      if (!cancelled) setTheirs(snapshot);
     })();
     return () => {
       cancelled = true;
     };
-  }, [compareListId]);
+  }, [code]);
 
   const summary = theirs ? compareTierLists(mine, theirs) : null;
 
@@ -42,9 +41,7 @@ export function CompareModal({ mine, compareListId, onClose }: CompareModalProps
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">
-            Comparaison {theirs?.ownerUsername ? `avec ${theirs.ownerUsername}` : ""}
-          </h2>
+          <h2 className="text-lg font-semibold text-white">Comparaison — code {code}</h2>
           <button
             onClick={onClose}
             className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
@@ -58,9 +55,7 @@ export function CompareModal({ mine, compareListId, onClose }: CompareModalProps
 
         {theirs === null && (
           <p className="text-zinc-400">
-            Cette tier list est introuvable ou privée — demande à ton ami de la passer en
-            &laquo;&nbsp;non répertoriée&nbsp;&raquo; ou &laquo;&nbsp;publique&nbsp;&raquo; pour
-            pouvoir comparer.
+            Code introuvable ou expiré — les codes ne sont valables que 14 jours.
           </p>
         )}
 

@@ -37,8 +37,6 @@ export interface TierListDoc {
   /** Background color of the tier rows / pool; falls back to the app default when unset. */
   backgroundColor?: string;
   visibility: Visibility;
-  /** Id of another tier list (usually a friend's copy of this one) to compare placements against. */
-  compareListId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

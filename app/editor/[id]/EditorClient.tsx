@@ -25,7 +25,8 @@ import { PoolArea } from "@/components/PoolArea";
 import { RatingModal } from "@/components/RatingModal";
 import { TierRow } from "@/components/TierRow";
 import { POOL_ID } from "@/lib/constants";
-import { extractTierListId } from "@/lib/compare";
+import { normalizeCode } from "@/lib/compare";
+import { generateComparisonCode } from "@/lib/comparisonSnapshot";
 import { deleteImage, deleteTierList, listTierLists, loadTierList, saveTierList, uploadImage } from "@/lib/db";
 import { exportElementAsPng } from "@/lib/export";
 import { BACKGROUND_COLOR_SWATCHES, cloneTierList, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
@@ -116,9 +117,10 @@ export function EditorClient({ id }: EditorClientProps) {
   const [lightboxItem, setLightboxItem] = useState<TierItem | null>(null);
   const [activeItem, setActiveItem] = useState<TierItem | null>(null);
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
-  const [compareModalOpen, setCompareModalOpen] = useState(false);
-  const [compareInput, setCompareInput] = useState("");
-  const [lastCompareDocId, setLastCompareDocId] = useState<string | null>(null);
+  const [myCompareCode, setMyCompareCode] = useState<string | null>(null);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [friendCodeInput, setFriendCodeInput] = useState("");
+  const [activeCompareCode, setActiveCompareCode] = useState<string | null>(null);
   const [siblings, setSiblings] = useState<Array<{ id: string; title: string }>>([]);
   const exportRef = useRef<HTMLDivElement>(null);
   const bgPopoverRef = useRef<HTMLDivElement>(null);
@@ -185,11 +187,6 @@ export function EditorClient({ id }: EditorClientProps) {
   }, [id, user]);
 
   const isOwner = doc?.ownerId === user?.id;
-
-  if (doc && doc.id !== lastCompareDocId) {
-    setLastCompareDocId(doc.id);
-    setCompareInput(doc.compareListId ?? "");
-  }
 
   useEffect(() => {
     if (!doc || !isOwner) return;
@@ -401,9 +398,21 @@ export function EditorClient({ id }: EditorClientProps) {
     updateDoc((prev) => ({ ...prev, backgroundColor: color }));
   }
 
-  function handleSaveCompareLink() {
-    const extracted = extractTierListId(compareInput);
-    updateDoc((prev) => ({ ...prev, compareListId: extracted }));
+  async function handleGenerateCompareCode() {
+    if (!doc) return;
+    setGeneratingCode(true);
+    try {
+      const code = await generateComparisonCode(doc.id, { tiers: doc.tiers, items: doc.items });
+      setMyCompareCode(code);
+    } finally {
+      setGeneratingCode(false);
+    }
+  }
+
+  function handleOpenCompare() {
+    const code = normalizeCode(friendCodeInput);
+    if (!code) return;
+    setActiveCompareCode(code);
   }
 
   /** Splits the 1-10 scale into as many equal bands as there are tiers, best score first. */
@@ -763,38 +772,51 @@ export function EditorClient({ id }: EditorClientProps) {
         <DragOverlay>{activeItem ? <ItemThumbnail item={activeItem} /> : null}</DragOverlay>
       </DndContext>
 
-      <div className="flex flex-col gap-2 border-t border-zinc-800 pt-4">
-        {isOwner && (
-          <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="compare-link" className="text-sm text-zinc-400 shrink-0">
-              Comparer avec un ami :
-            </label>
-            <input
-              id="compare-link"
-              value={compareInput}
-              onChange={(e) => setCompareInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveCompareLink();
-              }}
-              placeholder="Colle le lien de sa tier list..."
-              className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
-            />
-            <button
-              onClick={handleSaveCompareLink}
-              className="shrink-0 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
-            >
-              Enregistrer
-            </button>
-          </div>
-        )}
-        {doc.compareListId && (
+      <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4">
+        <p className="text-sm font-medium text-zinc-300">Comparer avec un ami</p>
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setCompareModalOpen(true)}
-            className="w-fit rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
+            onClick={handleGenerateCompareCode}
+            disabled={generatingCode}
+            className="shrink-0 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
           >
-            Comparer les classements
+            {generatingCode ? "..." : "Générer un code pour mon classement"}
           </button>
-        )}
+          {myCompareCode && (
+            <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2">
+              <span className="font-mono text-sm tracking-widest text-white">{myCompareCode}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(myCompareCode)}
+                className="text-xs text-zinc-400 transition hover:text-white"
+                title="Copier le code"
+              >
+                Copier
+              </button>
+              <span className="text-xs text-zinc-500">valable 14 jours</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={friendCodeInput}
+            onChange={(e) => setFriendCodeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleOpenCompare();
+            }}
+            placeholder="Code de ton ami..."
+            maxLength={6}
+            className="w-40 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm uppercase text-white placeholder:text-zinc-500 placeholder:normal-case outline-none focus:border-ember"
+          />
+          <button
+            onClick={handleOpenCompare}
+            disabled={!friendCodeInput.trim()}
+            className="shrink-0 rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover disabled:opacity-50"
+          >
+            Comparer
+          </button>
+        </div>
       </div>
 
       <AddItemModal
@@ -820,11 +842,11 @@ export function EditorClient({ id }: EditorClientProps) {
         />
       )}
 
-      {compareModalOpen && doc.compareListId && (
+      {activeCompareCode && (
         <CompareModal
-          mine={doc}
-          compareListId={doc.compareListId}
-          onClose={() => setCompareModalOpen(false)}
+          mine={{ tiers: doc.tiers, items: doc.items }}
+          code={activeCompareCode}
+          onClose={() => setActiveCompareCode(null)}
         />
       )}
     </div>

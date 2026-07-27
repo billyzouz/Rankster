@@ -1,4 +1,10 @@
-import type { Tier, TierItem, TierListDoc } from "./types";
+import type { Tier, TierItem } from "./types";
+
+/** Anything with a ranked set of tiers/items — a full TierListDoc or an anonymous comparison snapshot. */
+export interface RankedList {
+  tiers: Tier[];
+  items: TierItem[];
+}
 
 export type ComparisonMatch = "same" | "close" | "different" | "pending";
 
@@ -35,7 +41,7 @@ function tierByItem(item: TierItem, tiers: Tier[]): Tier | null {
 }
 
 /** Compares `mine`'s placements against `theirs` for every item the two lists have in common. */
-export function compareTierLists(mine: TierListDoc, theirs: TierListDoc): ComparisonSummary {
+export function compareTierLists(mine: RankedList, theirs: RankedList): ComparisonSummary {
   const theirsByKey = new Map(theirs.items.map((item) => [itemKey(item), item]));
 
   const rows: ComparisonRow[] = [];
@@ -77,10 +83,7 @@ export function compareTierLists(mine: TierListDoc, theirs: TierListDoc): Compar
   };
 }
 
-/** Extracts a bare tier-list id from either a full Rankster URL or a raw id the user pasted. */
-export function extractTierListId(input: string): string | null {
-  const trimmed = input.trim();
-  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-  const match = trimmed.match(uuidPattern);
-  return match ? match[0] : null;
+/** Cleans up a pasted/typed comparison code — case and stray whitespace shouldn't matter. */
+export function normalizeCode(input: string): string {
+  return input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
