@@ -11,6 +11,7 @@ interface TierListRow {
   items: TierItem[];
   background_color: string | null;
   visibility: Visibility;
+  compare_list_id: string | null;
   created_at: string;
   updated_at: string;
   profiles: { username: string } | null;
@@ -26,6 +27,7 @@ function rowToDoc(row: TierListRow): TierListDoc {
     items: row.items,
     backgroundColor: row.background_color ?? undefined,
     visibility: row.visibility,
+    compareListId: row.compare_list_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -40,6 +42,7 @@ export async function saveTierList(doc: TierListDoc): Promise<void> {
     items: doc.items,
     background_color: doc.backgroundColor ?? null,
     visibility: doc.visibility,
+    compare_list_id: doc.compareListId ?? null,
   });
   if (error) throw error;
 }

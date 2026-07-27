@@ -15,6 +15,8 @@ export interface TierItem {
   /** null means the item sits in the unranked pool. */
   tierId: string | null;
   order: number;
+  /** Last score (out of 10) given during a guided rating pass — used to sort within a tier and to re-derive placements. */
+  score?: number;
 }
 
 export interface Tier {
@@ -35,6 +37,8 @@ export interface TierListDoc {
   /** Background color of the tier rows / pool; falls back to the app default when unset. */
   backgroundColor?: string;
   visibility: Visibility;
+  /** Id of another tier list (usually a friend's copy of this one) to compare placements against. */
+  compareListId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

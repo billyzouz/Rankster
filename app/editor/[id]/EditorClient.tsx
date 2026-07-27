@@ -17,12 +17,15 @@ import {
 } from "@dnd-kit/core";
 import { AddItemModal, type PendingImageItem } from "@/components/AddItemModal";
 import { useAuth } from "@/components/AuthProvider";
+import { CompareModal } from "@/components/CompareModal";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { PoolArea } from "@/components/PoolArea";
+import { RatingModal } from "@/components/RatingModal";
 import { TierRow } from "@/components/TierRow";
 import { POOL_ID } from "@/lib/constants";
+import { extractTierListId } from "@/lib/compare";
 import { deleteImage, deleteTierList, listTierLists, loadTierList, saveTierList, uploadImage } from "@/lib/db";
 import { exportElementAsPng } from "@/lib/export";
 import { BACKGROUND_COLOR_SWATCHES, cloneTierList, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
@@ -112,6 +115,10 @@ export function EditorClient({ id }: EditorClientProps) {
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<TierItem | null>(null);
   const [activeItem, setActiveItem] = useState<TierItem | null>(null);
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [compareInput, setCompareInput] = useState("");
+  const [lastCompareDocId, setLastCompareDocId] = useState<string | null>(null);
   const [siblings, setSiblings] = useState<Array<{ id: string; title: string }>>([]);
   const exportRef = useRef<HTMLDivElement>(null);
   const bgPopoverRef = useRef<HTMLDivElement>(null);
@@ -179,6 +186,11 @@ export function EditorClient({ id }: EditorClientProps) {
 
   const isOwner = doc?.ownerId === user?.id;
 
+  if (doc && doc.id !== lastCompareDocId) {
+    setLastCompareDocId(doc.id);
+    setCompareInput(doc.compareListId ?? "");
+  }
+
   useEffect(() => {
     if (!doc || !isOwner) return;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -224,6 +236,8 @@ export function EditorClient({ id }: EditorClientProps) {
     }
     return map;
   }, [doc]);
+
+  const poolItems = containers[POOL_ID] ?? [];
 
   function updateDoc(mutator: (prev: TierListDoc) => TierListDoc) {
     setDoc((prev) => (prev ? { ...mutator(prev), updatedAt: new Date().toISOString() } : prev));
@@ -385,6 +399,49 @@ export function EditorClient({ id }: EditorClientProps) {
 
   function handleSetBackgroundColor(color: string) {
     updateDoc((prev) => ({ ...prev, backgroundColor: color }));
+  }
+
+  function handleSaveCompareLink() {
+    const extracted = extractTierListId(compareInput);
+    updateDoc((prev) => ({ ...prev, compareListId: extracted }));
+  }
+
+  /** Splits the 1-10 scale into as many equal bands as there are tiers, best score first. */
+  function handleRatingComplete(scores: Map<string, number>) {
+    setRatingModalOpen(false);
+    if (scores.size === 0) return;
+    updateDoc((prev) => {
+      const sortedTiers = [...prev.tiers].sort((a, b) => a.order - b.order);
+      if (sortedTiers.length === 0) return prev;
+      const bandWidth = 10 / sortedTiers.length;
+
+      const nextOrder = new Map<string, number>();
+      for (const tier of sortedTiers) {
+        const maxOrder = prev.items
+          .filter((item) => item.tierId === tier.id)
+          .reduce((max, item) => Math.max(max, item.order), -1);
+        nextOrder.set(tier.id, maxOrder + 1);
+      }
+
+      const rankedIds = [...scores.keys()].sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0));
+      const tierIdByItemId = new Map<string, string>();
+      for (const itemId of rankedIds) {
+        const score = scores.get(itemId) ?? 0;
+        const tierIndex = Math.min(sortedTiers.length - 1, Math.max(0, Math.floor((10 - score) / bandWidth)));
+        tierIdByItemId.set(itemId, sortedTiers[tierIndex].id);
+      }
+
+      return {
+        ...prev,
+        items: prev.items.map((item) => {
+          const tierId = tierIdByItemId.get(item.id);
+          if (!tierId) return item;
+          const order = nextOrder.get(tierId) ?? 0;
+          nextOrder.set(tierId, order + 1);
+          return { ...item, tierId, order, score: scores.get(item.id) };
+        }),
+      };
+    });
   }
 
   function handleSetVisibility(visibility: Visibility) {
@@ -646,6 +703,14 @@ export function EditorClient({ id }: EditorClientProps) {
             </button>
           )}
           <button
+            onClick={() => setRatingModalOpen(true)}
+            disabled={poolItems.length === 0}
+            title="Note chaque item non classé sur 10, puis classe-les automatiquement"
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            Noter en rafale
+          </button>
+          <button
             onClick={handleExport}
             className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
           >
@@ -698,6 +763,40 @@ export function EditorClient({ id }: EditorClientProps) {
         <DragOverlay>{activeItem ? <ItemThumbnail item={activeItem} /> : null}</DragOverlay>
       </DndContext>
 
+      <div className="flex flex-col gap-2 border-t border-zinc-800 pt-4">
+        {isOwner && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="compare-link" className="text-sm text-zinc-400 shrink-0">
+              Comparer avec un ami :
+            </label>
+            <input
+              id="compare-link"
+              value={compareInput}
+              onChange={(e) => setCompareInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveCompareLink();
+              }}
+              placeholder="Colle le lien de sa tier list..."
+              className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
+            />
+            <button
+              onClick={handleSaveCompareLink}
+              className="shrink-0 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+            >
+              Enregistrer
+            </button>
+          </div>
+        )}
+        {doc.compareListId && (
+          <button
+            onClick={() => setCompareModalOpen(true)}
+            className="w-fit rounded-md bg-ember px-3 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover"
+          >
+            Comparer les classements
+          </button>
+        )}
+      </div>
+
       <AddItemModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -712,6 +811,22 @@ export function EditorClient({ id }: EditorClientProps) {
         onRename={handleRenameItem}
         readOnly={!isOwner}
       />
+
+      {ratingModalOpen && (
+        <RatingModal
+          items={poolItems}
+          onClose={() => setRatingModalOpen(false)}
+          onComplete={handleRatingComplete}
+        />
+      )}
+
+      {compareModalOpen && doc.compareListId && (
+        <CompareModal
+          mine={doc}
+          compareListId={doc.compareListId}
+          onClose={() => setCompareModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
