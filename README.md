@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rankster
 
-## Getting Started
+Rankster est un créateur de tier list en ligne : classe des images et des vidéos YouTube dans des tiers personnalisés, glisse-dépose à ta façon, exporte le résultat, et partage tes classements avec d'autres.
 
-First, run the development server:
+## Fonctionnalités
+
+- **Éditeur de tier list** — glisser-déposer entre tiers via [dnd-kit](https://dndkit.com/), tiers personnalisables (nom, couleur, ordre), couleur de fond, export en PNG.
+- **Items** — ajoute des images (uploadées) ou des vidéos YouTube, une par une ou par playlist entière (import en un clic via l'API YouTube Data v3).
+- **Comptes** — inscription / connexion par email, gérées par Supabase Auth.
+- **Visibilité** — chaque tier list est privée, non répertoriée (accessible par lien) ou publique.
+- **Navigation invité** — pas besoin de compte pour parcourir et classer les tier lists publiques ; un compte n'est requis que pour créer ou sauvegarder.
+- **Classement partagé** — ouvrir la tier list de quelqu'un d'autre permet de la classer soi-même à partir d'un pool vierge (jamais le classement du créateur), puis de sauvegarder sa propre version en copie privée.
+- **Rôle admin** — le propriétaire du site peut supprimer n'importe quelle tier list.
+
+## Stack technique
+
+- [Next.js 16](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + TypeScript
+- [Tailwind CSS v4](https://tailwindcss.com/)
+- [dnd-kit](https://dndkit.com/) pour le glisser-déposer
+- [Supabase](https://supabase.com/) — base de données Postgres, authentification et stockage des images
+- [YouTube Data API v3](https://developers.google.com/youtube/v3) pour l'import de playlists
+
+## Installation
+
+```bash
+npm install
+```
+
+Copie `.env.local.example` vers `.env.local` et renseigne :
+
+- Les identifiants d'un projet Supabase (URL + clé publique) — voir *Project Settings > API* sur le dashboard Supabase.
+- Une clé YouTube Data API v3 — voir [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (restreins-la à cette API uniquement).
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Commande | Description |
+| --- | --- |
+| `npm run dev` | Serveur de développement |
+| `npm run build` | Build de production |
+| `npm run start` | Lance le build de production |
+| `npm run lint` | Vérifie le code avec ESLint |
