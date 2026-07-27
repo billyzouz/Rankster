@@ -21,7 +21,7 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "TierList — crée et classe tes tier lists",
+  title: "Rankster — crée et classe tes tier lists",
   description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
 };
 

@@ -36,7 +36,7 @@ export function Header() {
         <span className="flex h-8 w-8 -rotate-6 items-center justify-center rounded-md bg-ember font-display text-xl leading-none text-white shadow-sm shadow-ember/30">
           S
         </span>
-        <span className="font-display text-2xl leading-none tracking-wide">TierList</span>
+        <span className="font-display text-2xl leading-none tracking-wide">Rankster</span>
       </Link>
 
       <div className="flex items-center gap-2">
