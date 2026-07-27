@@ -18,8 +18,6 @@ export interface TierItem {
 export interface Tier {
   id: string;
   label: string;
-  /** Short descriptive text under the label, e.g. "Favori", "À éviter". */
-  subtitle?: string;
   color: string;
   order: number;
 }

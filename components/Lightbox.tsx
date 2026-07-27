@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { extractYoutubeId, getYoutubeEmbedUrl } from "@/lib/youtube";
 import type { TierItem } from "@/lib/types";
 import { CloseIcon } from "./icons";
@@ -7,9 +8,18 @@ import { CloseIcon } from "./icons";
 interface LightboxProps {
   item: TierItem | null;
   onClose: () => void;
+  onRename: (itemId: string, label: string) => void;
 }
 
-export function Lightbox({ item, onClose }: LightboxProps) {
+export function Lightbox({ item, onClose, onRename }: LightboxProps) {
+  const [draftLabel, setDraftLabel] = useState(item?.label ?? "");
+  const [lastItemId, setLastItemId] = useState(item?.id ?? null);
+
+  if (item && item.id !== lastItemId) {
+    setLastItemId(item.id);
+    setDraftLabel(item.label);
+  }
+
   if (!item) return null;
 
   const videoId = item.type === "youtube" && item.sourceUrl ? extractYoutubeId(item.sourceUrl) : null;
@@ -20,8 +30,16 @@ export function Lightbox({ item, onClose }: LightboxProps) {
       onClick={onClose}
     >
       <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 flex items-center justify-between text-white">
-          <p className="truncate font-medium">{item.label}</p>
+        <div className="mb-2 flex items-center gap-2 text-white">
+          <input
+            value={draftLabel}
+            onChange={(e) => {
+              setDraftLabel(e.target.value);
+              onRename(item.id, e.target.value);
+            }}
+            placeholder="Nom de l'item"
+            className="min-w-0 flex-1 truncate bg-transparent font-medium outline-none placeholder:text-white/40"
+          />
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Fermer">
             <CloseIcon className="h-5 w-5" />
           </button>

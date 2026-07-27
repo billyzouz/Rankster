@@ -43,7 +43,7 @@ export function PoolArea({ items, onItemClick, onItemDelete, backgroundColor }: 
           </div>
         )}
       </div>
-      <div className="flex min-h-14 flex-wrap content-start gap-2 p-3" style={{ backgroundColor }}>
+      <div className="flex min-h-20 flex-wrap content-start gap-2 p-3" style={{ backgroundColor }}>
         <SortableContext id={POOL_ID} items={filtered.map((i) => i.id)} strategy={rectSortingStrategy}>
           {items.length === 0 ? (
             <p className="text-sm text-zinc-500">

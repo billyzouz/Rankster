@@ -17,7 +17,6 @@ interface TierRowProps {
   items: TierItem[];
   backgroundColor: string;
   onRename: (label: string) => void;
-  onSubtitleChange: (subtitle: string) => void;
   onRecolor: (color: string) => void;
   onDelete: () => void;
   onClearItems: () => void;
@@ -36,7 +35,6 @@ export function TierRow({
   items,
   backgroundColor,
   onRename,
-  onSubtitleChange,
   onRecolor,
   onDelete,
   onClearItems,
@@ -84,26 +82,19 @@ export function TierRow({
   return (
     <div ref={setNodeRef} className="flex border-b border-zinc-800 last:border-b-0">
       <div
-        className="flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 p-1 sm:w-24"
+        className="flex w-24 shrink-0 items-center justify-center p-1.5 sm:w-28"
         style={{ backgroundColor: tier.color }}
       >
         <input
           value={tier.label}
           onChange={(e) => onRename(e.target.value)}
-          className="w-full bg-transparent text-center font-display text-xl tracking-wide text-white outline-none placeholder:text-white/70"
+          className="w-full bg-transparent text-center font-display text-2xl tracking-wide text-white outline-none placeholder:text-white/70"
           maxLength={12}
-        />
-        <input
-          value={tier.subtitle ?? ""}
-          onChange={(e) => onSubtitleChange(e.target.value)}
-          placeholder="sous-titre"
-          className="w-full bg-transparent text-center text-[11px] text-white/80 outline-none placeholder:text-white/40"
-          maxLength={24}
         />
       </div>
 
       <div
-        className="flex min-h-14 flex-1 flex-wrap content-start gap-2 p-2"
+        className="flex min-h-20 flex-1 flex-wrap content-start gap-2 p-2"
         style={{ backgroundColor }}
       >
         <SortableContext id={tier.id} items={items.map((i) => i.id)} strategy={horizontalListSortingStrategy}>
@@ -118,30 +109,30 @@ export function TierRow({
         </SortableContext>
       </div>
 
-      <div className="relative flex w-9 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-800 bg-black py-1">
+      <div className="relative flex w-11 shrink-0 flex-col items-center justify-center gap-1 border-l border-zinc-800 bg-black py-1.5">
         <button
           ref={gearButtonRef}
           onClick={toggleSettings}
           title="Réglages du tier"
-          className="rounded p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
         >
-          <GearIcon className="h-3.5 w-3.5" />
+          <GearIcon className="h-4 w-4" />
         </button>
         <button
           onClick={onMoveUp}
           disabled={!canMoveUp}
           title="Monter ce tier"
-          className="rounded p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
         >
-          <ChevronUpIcon className="h-3.5 w-3.5" />
+          <ChevronUpIcon className="h-4 w-4" />
         </button>
         <button
           onClick={onMoveDown}
           disabled={!canMoveDown}
           title="Descendre ce tier"
-          className="rounded p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+          className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
         >
-          <ChevronDownIcon className="h-3.5 w-3.5" />
+          <ChevronDownIcon className="h-4 w-4" />
         </button>
 
         {settingsOpen &&

@@ -15,7 +15,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { AddItemModal } from "@/components/AddItemModal";
+import { AddItemModal, type PendingImageItem } from "@/components/AddItemModal";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
@@ -153,15 +153,15 @@ export function EditorClient({ id }: EditorClientProps) {
     return item ? (item.tierId ?? POOL_ID) : undefined;
   }
 
-  async function handleAddImages(files: File[]) {
+  async function handleAddImages(items: PendingImageItem[]) {
     const newItems: TierItem[] = [];
-    for (const file of files) {
+    for (const { file, label } of items) {
       const blobId = crypto.randomUUID();
       await saveBlob(blobId, file);
       newItems.push({
         id: crypto.randomUUID(),
         type: "image",
-        label: file.name.replace(/\.[^.]+$/, ""),
+        label,
         thumbnailUrl: URL.createObjectURL(file),
         blobId,
         tierId: null,
@@ -205,6 +205,13 @@ export function EditorClient({ id }: EditorClientProps) {
     updateDoc((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== itemId) }));
   }
 
+  function handleRenameItem(itemId: string, label: string) {
+    updateDoc((prev) => ({
+      ...prev,
+      items: prev.items.map((i) => (i.id === itemId ? { ...i, label } : i)),
+    }));
+  }
+
   function handleAddTier() {
     updateDoc((prev) => {
       const maxOrder = prev.tiers.reduce((m, t) => Math.max(m, t.order), -1);
@@ -222,13 +229,6 @@ export function EditorClient({ id }: EditorClientProps) {
     updateDoc((prev) => ({
       ...prev,
       tiers: prev.tiers.map((t) => (t.id === tierId ? { ...t, label } : t)),
-    }));
-  }
-
-  function handleSubtitleChange(tierId: string, subtitle: string) {
-    updateDoc((prev) => ({
-      ...prev,
-      tiers: prev.tiers.map((t) => (t.id === tierId ? { ...t, subtitle } : t)),
     }));
   }
 
@@ -505,7 +505,6 @@ export function EditorClient({ id }: EditorClientProps) {
               items={containers[tier.id] ?? []}
               backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
               onRename={(label) => handleRenameTier(tier.id, label)}
-              onSubtitleChange={(subtitle) => handleSubtitleChange(tier.id, subtitle)}
               onRecolor={(color) => handleRecolorTier(tier.id, color)}
               onDelete={() => handleDeleteTier(tier.id)}
               onClearItems={() => handleClearTier(tier.id)}
@@ -538,7 +537,7 @@ export function EditorClient({ id }: EditorClientProps) {
         onAddYoutube={handleAddYoutube}
       />
 
-      <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} onRename={handleRenameItem} />
     </div>
   );
 }
