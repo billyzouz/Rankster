@@ -27,6 +27,14 @@ export const metadata: Metadata = {
   description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Rankster",
+  url: "https://rankster.fr",
+  description: "Un créateur de tier list avec images, GIFs et vidéos YouTube.",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,6 +46,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-ink text-zinc-100">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <AuthProvider>
           <SearchProvider>
             <AppChrome>{children}</AppChrome>

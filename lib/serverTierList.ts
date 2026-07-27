@@ -22,6 +22,30 @@ interface TierListRow {
  * RLS only returns public/unlisted lists here, so private ones naturally resolve
  * to null and fall back to the site's generic metadata instead of leaking a title.
  */
+export interface PublicTierListId {
+  id: string;
+  updatedAt: string;
+}
+
+/** Every publicly-listed tier list id, for the sitemap — unlisted lists are deliberately excluded. */
+export const listPublicTierListIds = cache(async (): Promise<PublicTierListId[]> => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return [];
+
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/tier_lists?visibility=eq.public&select=id,updated_at`, {
+      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const rows = (await res.json()) as Array<{ id: string; updated_at: string }>;
+    return rows.map((row) => ({ id: row.id, updatedAt: row.updated_at }));
+  } catch {
+    return [];
+  }
+});
+
 export const getPublicTierList = cache(async (id: string): Promise<PublicTierListSummary | null> => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
