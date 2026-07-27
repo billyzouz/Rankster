@@ -305,7 +305,21 @@ export function EditorClient({ id }: EditorClientProps) {
 
   async function handleDeleteItem(itemId: string) {
     const item = doc?.items.find((i) => i.id === itemId);
-    if (item?.storagePath) {
+    if (!item) return;
+
+    if (item.tierId !== null) {
+      // Classified item: the cross unclassifies it instead of deleting it outright.
+      updateDoc((prev) => {
+        const poolCount = prev.items.filter((i) => i.tierId === null).length;
+        return {
+          ...prev,
+          items: prev.items.map((i) => (i.id === itemId ? { ...i, tierId: null, order: poolCount } : i)),
+        };
+      });
+      return;
+    }
+
+    if (item.storagePath) {
       await deleteImage(item.storagePath);
     }
     if (lightboxItem?.id === itemId) {

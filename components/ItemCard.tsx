@@ -12,9 +12,10 @@ interface ItemCardProps {
   item: TierItem;
   onClick?: () => void;
   onDelete?: () => void;
+  deleteLabel?: string;
 }
 
-export function ItemCard({ item, onClick, onDelete }: ItemCardProps) {
+export function ItemCard({ item, onClick, onDelete, deleteLabel = "Supprimer cet item" }: ItemCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
@@ -62,8 +63,8 @@ export function ItemCard({ item, onClick, onDelete }: ItemCardProps) {
             onDelete();
           }}
           className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white opacity-0 shadow ring-1 ring-zinc-700 transition hover:bg-red-500 hover:ring-red-500 group-hover:opacity-100"
-          aria-label="Supprimer cet item"
-          title="Supprimer cet item"
+          aria-label={deleteLabel}
+          title={deleteLabel}
         >
           <CloseIcon className="h-3.5 w-3.5" />
         </button>

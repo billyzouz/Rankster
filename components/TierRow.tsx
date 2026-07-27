@@ -111,6 +111,7 @@ export function TierRow({
               item={item}
               onClick={() => onItemClick(item)}
               onDelete={readOnly ? undefined : () => onItemDelete(item.id)}
+              deleteLabel="Renvoyer dans les non classés"
             />
           ))}
         </SortableContext>
