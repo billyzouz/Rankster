@@ -59,12 +59,18 @@ export async function fetchYoutubeMeta(url: string): Promise<YoutubeMeta> {
  * Returns null (keep the original title) when no such pattern is found.
  */
 export function guessOpeningEndingLabel(title: string): string | null {
-  const full = title.match(/(?:^|[-:|–—])\s*(Opening|Ending)\b[\s:–-]*(\d+)?\s*(v\d+)?/i);
-  if (full) {
-    const kind = full[1].toLowerCase() === "opening" ? "Opening" : "Ending";
-    const number = full[2] ? ` ${full[2]}` : "";
-    const version = full[3] ? ` ${full[3].toLowerCase()}` : "";
-    return `${kind}${number}${version}`;
+  // A number right after "Opening"/"Ending" is an unambiguous signal on its own.
+  const withNumber = title.match(/\b(Opening|Ending)\b[\s:–-]*(\d+)\s*(v\d+)?/i);
+  if (withNumber) {
+    const kind = withNumber[1].toLowerCase() === "opening" ? "Opening" : "Ending";
+    const version = withNumber[3] ? ` ${withNumber[3].toLowerCase()}` : "";
+    return `${kind} ${withNumber[2]}${version}`;
+  }
+  // Without a number, only trust it when it reads as a title section (e.g. "Show - Opening
+  // (Song)"), not as an ordinary word in a sentence (e.g. "opening a business").
+  const bare = title.match(/(?:^|[-:|–—])\s*(Opening|Ending)\b/i);
+  if (bare) {
+    return bare[1].toLowerCase() === "opening" ? "Opening" : "Ending";
   }
   const short = title.match(/\b(OP|ED)\s*\.?\s*(\d+)\b/);
   if (short) {
