@@ -41,6 +41,35 @@ interface EditorClientProps {
   id: string;
 }
 
+type LocalRankingEntry = { tierId: string | null; order: number };
+
+/**
+ * A non-owner's arrangement is never written to the shared list, so without this
+ * it would vanish on every page refresh. Keeping it in localStorage (keyed per
+ * list) lets it survive refreshes while staying private to this browser.
+ */
+function localRankingKey(id: string): string {
+  return `rankster:local-rank:${id}`;
+}
+
+function readLocalRanking(id: string): Record<string, LocalRankingEntry> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(localRankingKey(id));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalRanking(id: string, ranking: Record<string, LocalRankingEntry>) {
+  try {
+    window.localStorage.setItem(localRankingKey(id), JSON.stringify(ranking));
+  } catch {
+    // ignore quota/private-mode errors
+  }
+}
+
 /**
  * Prefer whatever droppable the pointer is literally over; closestCenter alone
  * can resolve to the wrong tier row once rows are short and irregularly shaped
@@ -86,14 +115,21 @@ export function EditorClient({ id }: EditorClientProps) {
       if (cancelled) return;
       if (existing) {
         const owned = existing.ownerId === user?.id;
-        setDoc(
-          owned
-            ? existing
-            : {
-                ...existing,
-                items: existing.items.map((item, index) => ({ ...item, tierId: null, order: index })),
-              },
-        );
+        if (owned) {
+          setDoc(existing);
+        } else {
+          const savedRanking = readLocalRanking(id);
+          const validTierIds = new Set(existing.tiers.map((t) => t.id));
+          setDoc({
+            ...existing,
+            items: existing.items.map((item, index) => {
+              const saved = savedRanking[item.id];
+              const tierId = saved && (saved.tierId === null || validTierIds.has(saved.tierId)) ? saved.tierId : null;
+              const order = saved ? saved.order : index;
+              return { ...item, tierId, order };
+            }),
+          });
+        }
       } else {
         router.replace("/");
       }
@@ -133,6 +169,15 @@ export function EditorClient({ id }: EditorClientProps) {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
   }, [doc, isOwner]);
+
+  useEffect(() => {
+    if (!doc || isOwner) return;
+    const ranking: Record<string, LocalRankingEntry> = {};
+    for (const item of doc.items) {
+      ranking[item.id] = { tierId: item.tierId, order: item.order };
+    }
+    writeLocalRanking(id, ranking);
+  }, [doc, isOwner, id]);
 
   useEffect(() => {
     if (!bgPickerOpen) return;
