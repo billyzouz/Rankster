@@ -25,7 +25,7 @@ export function TierListCard({ doc, isOwner, canDelete, onDuplicate, onDelete }:
   return (
     <div className="group relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 transition hover:border-ember/60 hover:shadow-lg hover:shadow-black/40">
       <Link href={`/editor/${doc.id}`} className="block">
-        <div className="grid h-36 grid-cols-2 grid-rows-2 gap-px overflow-hidden bg-zinc-950">
+        <div className="grid h-28 grid-cols-2 grid-rows-2 gap-px overflow-hidden bg-zinc-950">
           {thumbs.length > 0 ? (
             Array.from({ length: 4 }).map((_, i) =>
               thumbs[i] ? (
@@ -43,7 +43,7 @@ export function TierListCard({ doc, isOwner, canDelete, onDuplicate, onDelete }:
             </div>
           )}
         </div>
-        <div className="px-3 py-2">
+        <div className="px-3 py-1.5">
           <p className="truncate font-semibold text-white">{doc.title || "Sans titre"}</p>
           <p className="font-mono text-xs text-zinc-500">
             {doc.items.length} item{doc.items.length > 1 ? "s" : ""} · {doc.tiers.length} tiers
