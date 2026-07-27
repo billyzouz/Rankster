@@ -43,26 +43,37 @@ interface EditorClientProps {
 
 type LocalRankingEntry = { tierId: string | null; order: number };
 
+interface LocalRankingState {
+  items: Record<string, LocalRankingEntry>;
+  /** Extra tiers a non-owner added for their own view; never merged into the shared list. */
+  localTiers: Tier[];
+}
+
+const EMPTY_LOCAL_RANKING: LocalRankingState = { items: {}, localTiers: [] };
+
 /**
- * A non-owner's arrangement is never written to the shared list, so without this
- * it would vanish on every page refresh. Keeping it in localStorage (keyed per
- * list) lets it survive refreshes while staying private to this browser.
+ * A non-owner's arrangement (and any tiers they add for themselves) is never
+ * written to the shared list, so without this it would vanish on every page
+ * refresh. Keeping it in localStorage (keyed per list) lets it survive
+ * refreshes while staying private to this browser.
  */
 function localRankingKey(id: string): string {
   return `rankster:local-rank:${id}`;
 }
 
-function readLocalRanking(id: string): Record<string, LocalRankingEntry> {
-  if (typeof window === "undefined") return {};
+function readLocalRanking(id: string): LocalRankingState {
+  if (typeof window === "undefined") return EMPTY_LOCAL_RANKING;
   try {
     const raw = window.localStorage.getItem(localRankingKey(id));
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return EMPTY_LOCAL_RANKING;
+    const parsed = JSON.parse(raw);
+    return { items: parsed.items ?? {}, localTiers: parsed.localTiers ?? [] };
   } catch {
-    return {};
+    return EMPTY_LOCAL_RANKING;
   }
 }
 
-function writeLocalRanking(id: string, ranking: Record<string, LocalRankingEntry>) {
+function writeLocalRanking(id: string, ranking: LocalRankingState) {
   try {
     window.localStorage.setItem(localRankingKey(id), JSON.stringify(ranking));
   } catch {
@@ -105,6 +116,8 @@ export function EditorClient({ id }: EditorClientProps) {
   const exportRef = useRef<HTMLDivElement>(null);
   const bgPopoverRef = useRef<HTMLDivElement>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Ids of the owner's real tiers, captured on load — used to tell them apart from tiers a viewer added locally. */
+  const [originalTierIds, setOriginalTierIds] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, POINTER_SENSOR_OPTIONS));
 
@@ -118,14 +131,21 @@ export function EditorClient({ id }: EditorClientProps) {
         if (owned) {
           setDoc(existing);
         } else {
-          const savedRanking = readLocalRanking(id);
-          const validTierIds = new Set(existing.tiers.map((t) => t.id));
+          const originalIds = new Set(existing.tiers.map((t) => t.id));
+          setOriginalTierIds(originalIds);
+          const saved = readLocalRanking(id);
+          const tiers = [...existing.tiers, ...saved.localTiers];
+          const validTierIds = new Set(tiers.map((t) => t.id));
           setDoc({
             ...existing,
+            tiers,
             items: existing.items.map((item, index) => {
-              const saved = savedRanking[item.id];
-              const tierId = saved && (saved.tierId === null || validTierIds.has(saved.tierId)) ? saved.tierId : null;
-              const order = saved ? saved.order : index;
+              const savedItem = saved.items[item.id];
+              const tierId =
+                savedItem && (savedItem.tierId === null || validTierIds.has(savedItem.tierId))
+                  ? savedItem.tierId
+                  : null;
+              const order = savedItem ? savedItem.order : index;
               return { ...item, tierId, order };
             }),
           });
@@ -172,12 +192,13 @@ export function EditorClient({ id }: EditorClientProps) {
 
   useEffect(() => {
     if (!doc || isOwner) return;
-    const ranking: Record<string, LocalRankingEntry> = {};
+    const items: Record<string, LocalRankingEntry> = {};
     for (const item of doc.items) {
-      ranking[item.id] = { tierId: item.tierId, order: item.order };
+      items[item.id] = { tierId: item.tierId, order: item.order };
     }
-    writeLocalRanking(id, ranking);
-  }, [doc, isOwner, id]);
+    const localTiers = doc.tiers.filter((t) => !originalTierIds.has(t.id));
+    writeLocalRanking(id, { items, localTiers });
+  }, [doc, isOwner, id, originalTierIds]);
 
   useEffect(() => {
     if (!bgPickerOpen) return;
@@ -567,14 +588,13 @@ export function EditorClient({ id }: EditorClientProps) {
               Ajouter un item
             </button>
           )}
-          {isOwner && (
-            <button
-              onClick={handleAddTier}
-              className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
-            >
-              + Ajouter un tier
-            </button>
-          )}
+          <button
+            onClick={handleAddTier}
+            title={isOwner ? undefined : "Ajouter un tier pour ton propre classement"}
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+          >
+            + Ajouter un tier
+          </button>
           {isOwner && (
             <div className="relative">
               <button
@@ -650,6 +670,7 @@ export function EditorClient({ id }: EditorClientProps) {
               items={containers[tier.id] ?? []}
               backgroundColor={doc.backgroundColor ?? DEFAULT_BACKGROUND_COLOR}
               readOnly={!isOwner}
+              canManage={isOwner || !originalTierIds.has(tier.id)}
               onRename={(label) => handleRenameTier(tier.id, label)}
               onRecolor={(color) => handleRecolorTier(tier.id, color)}
               onDelete={() => handleDeleteTier(tier.id)}

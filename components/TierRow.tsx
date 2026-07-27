@@ -16,7 +16,10 @@ interface TierRowProps {
   tier: Tier;
   items: TierItem[];
   backgroundColor: string;
+  /** Disables deleting items from this row — items are shared content, so this stays true for any non-owner viewer. */
   readOnly?: boolean;
+  /** Enables the label input and the rename/recolor/move/delete-tier controls — true for the owner, or for a tier a viewer added to their own local view. */
+  canManage?: boolean;
   onRename: (label: string) => void;
   onRecolor: (color: string) => void;
   onDelete: () => void;
@@ -36,6 +39,7 @@ export function TierRow({
   items,
   backgroundColor,
   readOnly = false,
+  canManage = !readOnly,
   onRename,
   onRecolor,
   onDelete,
@@ -90,7 +94,7 @@ export function TierRow({
         <input
           value={tier.label}
           onChange={(e) => onRename(e.target.value)}
-          readOnly={readOnly}
+          readOnly={!canManage}
           className="w-full bg-transparent text-center font-display text-2xl tracking-wide text-white outline-none placeholder:text-white/70"
           maxLength={12}
         />
@@ -112,7 +116,7 @@ export function TierRow({
         </SortableContext>
       </div>
 
-      {!readOnly && (
+      {canManage && (
         <div className="relative flex w-11 shrink-0 flex-col items-center justify-center gap-1 border-l border-zinc-800 bg-black py-1.5">
           <button
             ref={gearButtonRef}
