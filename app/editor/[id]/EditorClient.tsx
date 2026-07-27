@@ -210,6 +210,22 @@ export function EditorClient({ id }: EditorClientProps) {
     });
   }
 
+  function handleAddYoutubePlaylist(items: YoutubeMeta[]) {
+    updateDoc((prev) => {
+      const poolCount = prev.items.filter((i) => i.tierId === null).length;
+      const newItems: TierItem[] = items.map((meta, index) => ({
+        id: crypto.randomUUID(),
+        type: "youtube",
+        label: meta.title,
+        thumbnailUrl: meta.thumbnailUrl,
+        sourceUrl: meta.sourceUrl,
+        tierId: null,
+        order: poolCount + index,
+      }));
+      return { ...prev, items: [...prev.items, ...newItems] };
+    });
+  }
+
   async function handleDeleteItem(itemId: string) {
     const item = doc?.items.find((i) => i.id === itemId);
     if (item?.storagePath) {
@@ -621,6 +637,7 @@ export function EditorClient({ id }: EditorClientProps) {
         onClose={() => setAddModalOpen(false)}
         onAddImages={handleAddImages}
         onAddYoutube={handleAddYoutube}
+        onAddYoutubePlaylist={handleAddYoutubePlaylist}
       />
 
       <Lightbox

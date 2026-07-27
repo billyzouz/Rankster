@@ -1,7 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { fetchYoutubeMeta, type YoutubeMeta } from "@/lib/youtube";
+import {
+  extractYoutubePlaylistId,
+  fetchYoutubeMeta,
+  fetchYoutubePlaylistItems,
+  type YoutubeMeta,
+} from "@/lib/youtube";
 import { CloseIcon } from "./icons";
 
 export interface PendingImageItem {
@@ -19,11 +24,18 @@ interface AddItemModalProps {
   onClose: () => void;
   onAddImages: (items: PendingImageItem[]) => void;
   onAddYoutube: (meta: YoutubeMeta) => void;
+  onAddYoutubePlaylist: (items: YoutubeMeta[]) => void;
 }
 
 type Tab = "image" | "youtube";
 
-export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddItemModalProps) {
+export function AddItemModal({
+  open,
+  onClose,
+  onAddImages,
+  onAddYoutube,
+  onAddYoutubePlaylist,
+}: AddItemModalProps) {
   const [tab, setTab] = useState<Tab>("image");
   const [isDragging, setIsDragging] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -31,6 +43,7 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [youtubeLoading, setYoutubeLoading] = useState(false);
   const [preview, setPreview] = useState<YoutubeMeta | null>(null);
+  const [pendingPlaylist, setPendingPlaylist] = useState<YoutubeMeta[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -71,11 +84,17 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
     setYoutubeLoading(true);
     setYoutubeError(null);
     setPreview(null);
+    setPendingPlaylist(null);
     try {
-      const meta = await fetchYoutubeMeta(youtubeUrl);
-      setPreview(meta);
+      if (extractYoutubePlaylistId(youtubeUrl)) {
+        const items = await fetchYoutubePlaylistItems(youtubeUrl);
+        setPendingPlaylist(items);
+      } else {
+        const meta = await fetchYoutubeMeta(youtubeUrl);
+        setPreview(meta);
+      }
     } catch (err) {
-      setYoutubeError(err instanceof Error ? err.message : "Impossible de charger cette vidéo.");
+      setYoutubeError(err instanceof Error ? err.message : "Impossible de charger ce lien YouTube.");
     } finally {
       setYoutubeLoading(false);
     }
@@ -85,6 +104,25 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
     if (!preview) return;
     onAddYoutube({ ...preview, title: preview.title.trim() || preview.title });
     setPreview(null);
+    setYoutubeUrl("");
+  }
+
+  function updatePlaylistItemTitle(videoId: string, title: string) {
+    setPendingPlaylist((prev) =>
+      prev ? prev.map((item) => (item.videoId === videoId ? { ...item, title } : item)) : prev,
+    );
+  }
+
+  function removePlaylistItem(videoId: string) {
+    setPendingPlaylist((prev) => (prev ? prev.filter((item) => item.videoId !== videoId) : prev));
+  }
+
+  function handleConfirmAddPlaylist() {
+    if (!pendingPlaylist || pendingPlaylist.length === 0) return;
+    onAddYoutubePlaylist(
+      pendingPlaylist.map((item) => ({ ...item, title: item.title.trim() || item.title })),
+    );
+    setPendingPlaylist(null);
     setYoutubeUrl("");
   }
 
@@ -219,7 +257,7 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handlePreview();
                 }}
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="Lien d'une vidéo ou d'une playlist YouTube..."
                 className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
               />
               <button
@@ -231,6 +269,49 @@ export function AddItemModal({ open, onClose, onAddImages, onAddYoutube }: AddIt
               </button>
             </div>
             {youtubeError && <p className="text-sm text-red-400">{youtubeError}</p>}
+            {pendingPlaylist && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium text-zinc-400">
+                  {pendingPlaylist.length} vidéo{pendingPlaylist.length > 1 ? "s" : ""} trouvée
+                  {pendingPlaylist.length > 1 ? "s" : ""} — modifie les noms si besoin, puis confirme :
+                </p>
+                <div className="flex max-h-56 flex-col gap-2 overflow-y-auto pr-1">
+                  {pendingPlaylist.map((item) => (
+                    <div
+                      key={item.videoId}
+                      className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800/50 p-2"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.thumbnailUrl}
+                        alt=""
+                        className="h-10 w-16 shrink-0 rounded object-cover"
+                      />
+                      <input
+                        value={item.title}
+                        onChange={(e) => updatePlaylistItemTitle(item.videoId, e.target.value)}
+                        className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-white outline-none focus:border-ember"
+                      />
+                      <button
+                        onClick={() => removePlaylistItem(item.videoId)}
+                        className="shrink-0 rounded p-1 text-zinc-500 transition hover:bg-zinc-700 hover:text-white"
+                        aria-label="Retirer cette vidéo"
+                        title="Retirer cette vidéo"
+                      >
+                        <CloseIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleConfirmAddPlaylist}
+                  disabled={pendingPlaylist.length === 0}
+                  className="rounded-md bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember-hover disabled:opacity-50"
+                >
+                  Ajouter {pendingPlaylist.length} vidéo{pendingPlaylist.length > 1 ? "s" : ""}
+                </button>
+              </div>
+            )}
             {preview && (
               <div className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
