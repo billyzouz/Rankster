@@ -38,9 +38,11 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return lists;
-    return lists.filter((doc) => doc.title.toLowerCase().includes(q));
-  }, [lists, query]);
+    return lists
+      // Others' unlisted lists stay reachable by direct link, but shouldn't show up here.
+      .filter((doc) => doc.ownerId === user?.id || doc.visibility === "public")
+      .filter((doc) => !q || doc.title.toLowerCase().includes(q));
+  }, [lists, query, user?.id]);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-8">
