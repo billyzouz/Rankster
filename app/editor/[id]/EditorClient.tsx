@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { AddItemModal, type PendingImageItem } from "@/components/AddItemModal";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import { CompareModal } from "@/components/CompareModal";
 import { ItemThumbnail } from "@/components/ItemThumbnail";
 import { Lightbox } from "@/components/Lightbox";
@@ -110,6 +111,7 @@ const MEASURING_CONFIG = { droppable: { strategy: MeasuringStrategy.Always } };
 export function EditorClient({ id }: EditorClientProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [doc, setDoc] = useState<TierListDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -801,7 +803,10 @@ export function EditorClient({ id }: EditorClientProps) {
             <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2">
               <span className="font-mono text-sm tracking-widest text-white">{myCompareCode}</span>
               <button
-                onClick={() => navigator.clipboard.writeText(myCompareCode)}
+                onClick={() => {
+                  navigator.clipboard.writeText(myCompareCode);
+                  showToast("Code copié !");
+                }}
                 className="text-xs text-zinc-400 transition hover:text-white"
                 title="Copier le code"
               >

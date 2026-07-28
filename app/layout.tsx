@@ -3,6 +3,7 @@ import { Bebas_Neue, Geist, Geist_Mono } from "next/font/google";
 import { AppChrome } from "@/components/AppChrome";
 import { AuthProvider } from "@/components/AuthProvider";
 import { SearchProvider } from "@/components/SearchProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,7 +69,9 @@ export default function RootLayout({
         />
         <AuthProvider>
           <SearchProvider>
-            <AppChrome>{children}</AppChrome>
+            <ToastProvider>
+              <AppChrome>{children}</AppChrome>
+            </ToastProvider>
           </SearchProvider>
         </AuthProvider>
       </body>
