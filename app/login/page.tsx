@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "forgot";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("login");
@@ -12,7 +12,15 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setConfirmationSent(false);
+    setResetSent(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +30,7 @@ export default function LoginPage() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-      } else {
+      } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -30,6 +38,12 @@ export default function LoginPage() {
         });
         if (error) throw error;
         if (!data.session) setConfirmationSent(true);
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        setResetSent(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -46,37 +60,43 @@ export default function LoginPage() {
         <h1 className="mt-3 font-display text-3xl tracking-wide text-white">Rankster</h1>
       </div>
 
-      <div className="flex gap-2 rounded-lg bg-zinc-800 p-1">
-        <button
-          onClick={() => {
-            setMode("login");
-            setError(null);
-            setConfirmationSent(false);
-          }}
-          className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
-            mode === "login" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
-          }`}
-        >
-          Connexion
-        </button>
-        <button
-          onClick={() => {
-            setMode("signup");
-            setError(null);
-            setConfirmationSent(false);
-          }}
-          className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
-            mode === "signup" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
-          }`}
-        >
-          Créer un compte
-        </button>
-      </div>
+      {mode !== "forgot" && (
+        <div className="flex gap-2 rounded-lg bg-zinc-800 p-1">
+          <button
+            onClick={() => switchMode("login")}
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
+              mode === "login" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
+            }`}
+          >
+            Connexion
+          </button>
+          <button
+            onClick={() => switchMode("signup")}
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
+              mode === "signup" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
+            }`}
+          >
+            Créer un compte
+          </button>
+        </div>
+      )}
 
       {confirmationSent ? (
         <p className="rounded-md border border-zinc-700 bg-zinc-900 p-4 text-center text-sm text-zinc-300">
           Compte créé ! Vérifie ta boîte mail ({email}) pour confirmer ton adresse, puis connecte-toi.
         </p>
+      ) : resetSent ? (
+        <div className="flex flex-col gap-3">
+          <p className="rounded-md border border-zinc-700 bg-zinc-900 p-4 text-center text-sm text-zinc-300">
+            Si un compte existe pour {email}, un lien de réinitialisation vient de lui être envoyé.
+          </p>
+          <button
+            onClick={() => switchMode("login")}
+            className="text-center text-sm text-zinc-400 hover:text-white"
+          >
+            ← Retour à la connexion
+          </button>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {mode === "signup" && (
@@ -98,23 +118,49 @@ export default function LoginPage() {
             required
             className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
           />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mot de passe"
-            required
-            minLength={6}
-            className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
-          />
+          {mode !== "forgot" && (
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mot de passe"
+              required
+              minLength={8}
+              className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
+            />
+          )}
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => switchMode("forgot")}
+              className="self-end text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Mot de passe oublié ?
+            </button>
+          )}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
             className="rounded-md bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember-hover disabled:opacity-50"
           >
-            {submitting ? "..." : mode === "login" ? "Se connecter" : "Créer mon compte"}
+            {submitting
+              ? "..."
+              : mode === "login"
+                ? "Se connecter"
+                : mode === "signup"
+                  ? "Créer mon compte"
+                  : "Envoyer le lien de réinitialisation"}
           </button>
+          {mode === "forgot" && (
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className="text-center text-sm text-zinc-400 hover:text-white"
+            >
+              ← Retour à la connexion
+            </button>
+          )}
         </form>
       )}
     </div>
