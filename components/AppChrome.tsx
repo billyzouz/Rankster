@@ -16,7 +16,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     if (user && isAuthPage) router.replace("/");
   }, [user, loading, isAuthPage, router]);
 
-  if (loading || (user && isAuthPage)) {
+  // Only the login page needs to wait on auth (to avoid flashing the form right before
+  // redirecting an already-logged-in user away) — every other page should render its
+  // real content immediately, both for a fast first paint and so it's there server-side
+  // for crawlers instead of being replaced by a client-only loading placeholder.
+  if (isAuthPage && (loading || user)) {
     return <div className="flex flex-1 items-center justify-center text-zinc-500">Chargement...</div>;
   }
 
