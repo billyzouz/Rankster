@@ -93,14 +93,23 @@ export function Header() {
         </button>
 
         {user ? (
-          <button
-            onClick={handleSignOut}
-            title="Se déconnecter"
-            className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-          >
-            <span className="hidden text-sm sm:inline">Déconnexion</span>
-            <span className="sm:hidden">⏻</span>
-          </button>
+          <>
+            <Link
+              href="/compte"
+              title="Mon compte"
+              className="hidden rounded-md p-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-white sm:inline"
+            >
+              Mon compte
+            </Link>
+            <button
+              onClick={handleSignOut}
+              title="Se déconnecter"
+              className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            >
+              <span className="hidden text-sm sm:inline">Déconnexion</span>
+              <span className="sm:hidden">⏻</span>
+            </button>
+          </>
         ) : (
           <button
             onClick={() => router.push("/login")}

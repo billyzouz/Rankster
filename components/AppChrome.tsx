@@ -28,6 +28,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     <>
       <Header />
       <main className="flex flex-1 flex-col">{children}</main>
+      <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-zinc-800 px-4 py-4 text-xs text-zinc-500">
+        <a href="/mentions-legales" className="hover:text-zinc-300 hover:underline">
+          Mentions légales
+        </a>
+        <a href="/confidentialite" className="hover:text-zinc-300 hover:underline">
+          Confidentialité
+        </a>
+      </footer>
     </>
   );
 }
