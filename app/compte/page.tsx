@@ -131,14 +131,14 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-8 p-4 py-10 sm:p-8">
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-2 p-4 py-3 sm:p-6">
       <div>
-        <h1 className="font-display text-3xl tracking-wide text-white">Mon compte</h1>
+        <h1 className="font-display text-2xl tracking-wide text-white">Mon compte</h1>
         <p className="mt-1 text-sm text-zinc-500">{user.email}</p>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <h2 className="font-display text-xl tracking-wide text-white">Pseudo</h2>
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+        <h2 className="font-display text-lg tracking-wide text-white">Pseudo</h2>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -157,8 +157,8 @@ export default function AccountPage() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <h2 className="font-display text-xl tracking-wide text-white">Mot de passe</h2>
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+        <h2 className="font-display text-lg tracking-wide text-white">Mot de passe</h2>
         <input
           type="password"
           value={currentPassword}
@@ -192,8 +192,8 @@ export default function AccountPage() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-red-900/60 bg-red-950/20 p-4">
-        <h2 className="font-display text-xl tracking-wide text-red-400">Supprimer mon compte</h2>
+      <div className="flex flex-col gap-2 rounded-lg border border-red-900/60 bg-red-950/20 p-3">
+        <h2 className="font-display text-lg tracking-wide text-red-400">Supprimer mon compte</h2>
         <p className="text-sm text-zinc-300">
           Cette action est définitive : ton compte, toutes tes tier lists et les images que tu as
           ajoutées seront supprimés immédiatement et ne pourront pas être récupérés.
