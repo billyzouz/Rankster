@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { getAnimeCharacters, searchAnime, type AnimeResult } from "@/lib/anilist";
+import type { GalleryImage } from "@/lib/gallery";
 import {
   extractYoutubePlaylistId,
   fetchYoutubeMeta,
@@ -8,6 +10,7 @@ import {
   guessOpeningEndingLabel,
   type YoutubeMeta,
 } from "@/lib/youtube";
+import { searchWikimediaImages } from "@/lib/wikimedia";
 import { CloseIcon } from "./icons";
 
 export interface PendingImageItem {
@@ -26,9 +29,11 @@ interface AddItemModalProps {
   onAddImages: (items: PendingImageItem[]) => void;
   onAddYoutube: (meta: YoutubeMeta) => void;
   onAddYoutubePlaylist: (items: YoutubeMeta[]) => void;
+  onAddGalleryImages: (items: GalleryImage[]) => void;
 }
 
-type Tab = "image" | "youtube";
+type Tab = "image" | "youtube" | "gallery";
+type GalleryMode = "anime" | "wikimedia";
 
 export function AddItemModal({
   open,
@@ -36,6 +41,7 @@ export function AddItemModal({
   onAddImages,
   onAddYoutube,
   onAddYoutubePlaylist,
+  onAddGalleryImages,
 }: AddItemModalProps) {
   const [tab, setTab] = useState<Tab>("image");
   const [isDragging, setIsDragging] = useState(false);
@@ -46,6 +52,15 @@ export function AddItemModal({
   const [preview, setPreview] = useState<YoutubeMeta | null>(null);
   const [pendingPlaylist, setPendingPlaylist] = useState<YoutubeMeta[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [galleryMode, setGalleryMode] = useState<GalleryMode>("anime");
+  const [galleryQuery, setGalleryQuery] = useState("");
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [animeResults, setAnimeResults] = useState<AnimeResult[] | null>(null);
+  const [selectedAnime, setSelectedAnime] = useState<AnimeResult | null>(null);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[] | null>(null);
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
 
   if (!open) return null;
 
@@ -129,6 +144,79 @@ export function AddItemModal({
     setYoutubeUrl("");
   }
 
+  function resetGallery() {
+    setGalleryQuery("");
+    setAnimeResults(null);
+    setSelectedAnime(null);
+    setGalleryImages(null);
+    setSelectedImages(new Set());
+    setGalleryError(null);
+  }
+
+  function switchGalleryMode(mode: GalleryMode) {
+    setGalleryMode(mode);
+    resetGallery();
+  }
+
+  async function handleGallerySearch() {
+    if (!galleryQuery.trim()) return;
+    setGalleryLoading(true);
+    setGalleryError(null);
+    setSelectedImages(new Set());
+    try {
+      if (galleryMode === "anime") {
+        setGalleryImages(null);
+        setSelectedAnime(null);
+        setAnimeResults(await searchAnime(galleryQuery));
+      } else {
+        setAnimeResults(null);
+        setGalleryImages(await searchWikimediaImages(galleryQuery));
+      }
+    } catch (err) {
+      setGalleryError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setGalleryLoading(false);
+    }
+  }
+
+  async function handleSelectAnime(anime: AnimeResult) {
+    setSelectedAnime(anime);
+    setAnimeResults(null);
+    setGalleryLoading(true);
+    setGalleryError(null);
+    setSelectedImages(new Set());
+    try {
+      setGalleryImages(await getAnimeCharacters(anime.id));
+    } catch (err) {
+      setGalleryError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setGalleryLoading(false);
+    }
+  }
+
+  function handleBackToAnimeSearch() {
+    setSelectedAnime(null);
+    setGalleryImages(null);
+    setSelectedImages(new Set());
+  }
+
+  function toggleImageSelection(index: number) {
+    setSelectedImages((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  function handleConfirmGallery() {
+    if (!galleryImages) return;
+    const chosen = galleryImages.filter((_, i) => selectedImages.has(i));
+    if (chosen.length === 0) return;
+    onAddGalleryImages(chosen);
+    resetGallery();
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -165,6 +253,14 @@ export function AddItemModal({
             onClick={() => setTab("youtube")}
           >
             YouTube
+          </button>
+          <button
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
+              tab === "gallery" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
+            }`}
+            onClick={() => setTab("gallery")}
+          >
+            Galerie
           </button>
         </div>
 
@@ -250,7 +346,7 @@ export function AddItemModal({
               </div>
             )}
           </div>
-        ) : (
+        ) : tab === "youtube" ? (
           <div className="flex flex-col gap-3">
             <div className="flex gap-2">
               <input
@@ -335,6 +431,121 @@ export function AddItemModal({
                   Ajouter
                 </button>
               </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2 rounded-lg bg-zinc-800 p-1">
+              <button
+                className={`flex-1 rounded-md py-1 text-xs font-medium transition ${
+                  galleryMode === "anime" ? "bg-zinc-700 text-white" : "text-zinc-400"
+                }`}
+                onClick={() => switchGalleryMode("anime")}
+              >
+                Anime / Manga
+              </button>
+              <button
+                className={`flex-1 rounded-md py-1 text-xs font-medium transition ${
+                  galleryMode === "wikimedia" ? "bg-zinc-700 text-white" : "text-zinc-400"
+                }`}
+                onClick={() => switchGalleryMode("wikimedia")}
+              >
+                Wikimedia (photos libres)
+              </button>
+            </div>
+
+            {selectedAnime && (
+              <button
+                onClick={handleBackToAnimeSearch}
+                className="self-start text-xs text-zinc-400 hover:text-white"
+              >
+                ← {selectedAnime.title}
+              </button>
+            )}
+
+            {!selectedAnime && (
+              <div className="flex gap-2">
+                <input
+                  value={galleryQuery}
+                  onChange={(e) => setGalleryQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleGallerySearch();
+                  }}
+                  placeholder={
+                    galleryMode === "anime" ? "Nom d'un anime/manga..." : "Rechercher une image..."
+                  }
+                  className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
+                />
+                <button
+                  onClick={handleGallerySearch}
+                  disabled={galleryLoading || !galleryQuery.trim()}
+                  className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {galleryLoading ? "..." : "Chercher"}
+                </button>
+              </div>
+            )}
+
+            {galleryError && <p className="text-sm text-red-400">{galleryError}</p>}
+
+            {animeResults && (
+              <div className="flex max-h-64 flex-col gap-1 overflow-y-auto pr-1">
+                {animeResults.length === 0 && (
+                  <p className="text-sm text-zinc-500">Aucun résultat.</p>
+                )}
+                {animeResults.map((anime) => (
+                  <button
+                    key={anime.id}
+                    onClick={() => handleSelectAnime(anime)}
+                    className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800/50 p-2 text-left transition hover:border-ember"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={anime.coverImage} alt="" className="h-12 w-9 shrink-0 rounded object-cover" />
+                    <span className="truncate text-sm text-white">{anime.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {galleryImages && (
+              <>
+                <p className="text-xs font-medium text-zinc-400">
+                  {galleryImages.length === 0
+                    ? "Aucun résultat."
+                    : "Clique pour sélectionner les images à ajouter :"}
+                </p>
+                <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">
+                  {galleryImages.map((img, index) => (
+                    <button
+                      key={index}
+                      onClick={() => toggleImageSelection(index)}
+                      className={`flex flex-col overflow-hidden rounded-md border-2 text-left transition ${
+                        selectedImages.has(index)
+                          ? "border-ember"
+                          : "border-zinc-700 hover:border-zinc-500"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.thumbnailUrl} alt="" className="aspect-square w-full object-cover" />
+                      <span
+                        className="truncate bg-zinc-900 px-1 py-0.5 text-[10px] text-zinc-300"
+                        title={img.label}
+                      >
+                        {img.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {galleryImages.length > 0 && (
+                  <button
+                    onClick={handleConfirmGallery}
+                    disabled={selectedImages.size === 0}
+                    className="rounded-md bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember-hover disabled:opacity-50"
+                  >
+                    Ajouter {selectedImages.size} image{selectedImages.size > 1 ? "s" : ""}
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
