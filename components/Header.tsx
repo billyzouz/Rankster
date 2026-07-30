@@ -1,20 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { useSearch } from "./SearchProvider";
+import { useView } from "./ViewProvider";
 import { PlusIcon, SearchIcon } from "./icons";
 import { saveTierList } from "@/lib/db";
 import { createTierList } from "@/lib/tierlist";
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, signOut } = useAuth();
   const { query, setQuery } = useSearch();
+  const { view, setView } = useView();
   const [searchOpen, setSearchOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function goToView(next: "all" | "mine") {
+    setView(next);
+    if (pathname !== "/") router.push("/");
+  }
 
   function openSearch() {
     setSearchOpen(true);
@@ -48,6 +56,31 @@ export function Header() {
         <img src="/logo-icon.png" alt="" className="h-9 w-auto" />
         <span className="font-display text-2xl leading-none tracking-wide">Rankster</span>
       </Link>
+
+      <div className="flex flex-1 items-center justify-center gap-1 overflow-hidden rounded-lg bg-zinc-900 p-1">
+        <button
+          onClick={() => goToView("all")}
+          className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 sm:text-sm ${
+            pathname === "/" && view === "all"
+              ? "bg-zinc-700 text-white shadow"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          <span className="sm:hidden">Toutes</span>
+          <span className="hidden sm:inline">Toutes les tier lists</span>
+        </button>
+        <button
+          onClick={() => goToView("mine")}
+          className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 sm:text-sm ${
+            pathname === "/" && view === "mine"
+              ? "bg-zinc-700 text-white shadow"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          <span className="sm:hidden">Miennes</span>
+          <span className="hidden sm:inline">Mes tier lists</span>
+        </button>
+      </div>
 
       <div className="flex items-center gap-2">
         <div className="flex items-center">

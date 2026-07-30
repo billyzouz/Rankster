@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useSearch } from "@/components/SearchProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useView } from "@/components/ViewProvider";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { TierListCard } from "@/components/TierListCard";
 import { deleteTierList, listTierLists, saveTierList } from "@/lib/db";
@@ -20,6 +21,7 @@ export function HomeClient({ initialLists }: HomeClientProps) {
   const { user, isAdmin } = useAuth();
   const { query } = useSearch();
   const { showToast } = useToast();
+  const { view } = useView();
   const [lists, setLists] = useState<TierListDoc[]>(initialLists);
   const [loading, setLoading] = useState(initialLists.length === 0);
   const [page, setPage] = useState(1);
@@ -51,10 +53,14 @@ export function HomeClient({ initialLists }: HomeClientProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return lists
-      // Others' unlisted lists stay reachable by direct link, but shouldn't show up here.
-      .filter((doc) => doc.ownerId === user?.id || doc.visibility === "public")
+      .filter((doc) =>
+        view === "mine"
+          ? doc.ownerId === user?.id
+          // Others' unlisted lists stay reachable by direct link, but shouldn't show up here.
+          : doc.visibility === "public",
+      )
       .filter((doc) => !q || doc.title.toLowerCase().includes(q));
-  }, [lists, query, user?.id]);
+  }, [lists, query, user?.id, view]);
 
   if (query !== lastQuery) {
     setLastQuery(query);
@@ -69,22 +75,26 @@ export function HomeClient({ initialLists }: HomeClientProps) {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-8">
       <div>
         <h1 className="font-display text-4xl tracking-wide text-white">
-          {user ? "Mes tier lists" : "Tier lists publiques"}
+          {view === "mine" ? "Mes tier lists" : "Toutes les tier lists"}
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          {user
-            ? "Classe des images et des vidéos YouTube dans des tiers, à ta façon."
-            : "Connecte-toi pour créer et sauvegarder tes propres tier lists."}
+          {view === "mine"
+            ? "Les tier lists que tu as créées, privées ou non."
+            : "Toutes les tier lists publiques de la communauté."}
         </p>
       </div>
 
-      {loading ? (
+      {view === "mine" && !user ? (
+        <p className="text-zinc-500">
+          Connecte-toi pour voir et créer tes propres tier lists.
+        </p>
+      ) : loading ? (
         <p className="text-zinc-500">Chargement...</p>
       ) : filtered.length === 0 ? (
         <p className="text-zinc-500">
           {query
             ? "Aucune tier list ne correspond à ta recherche."
-            : user
+            : view === "mine"
               ? "Aucune tier list pour l'instant. Crée-en une avec le bouton en haut à droite."
               : "Aucune tier list publique pour l'instant."}
         </p>

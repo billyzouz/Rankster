@@ -4,6 +4,7 @@ import { AppChrome } from "@/components/AppChrome";
 import { AuthProvider } from "@/components/AuthProvider";
 import { SearchProvider } from "@/components/SearchProvider";
 import { ToastProvider } from "@/components/ToastProvider";
+import { ViewProvider } from "@/components/ViewProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -69,9 +70,11 @@ export default function RootLayout({
         />
         <AuthProvider>
           <SearchProvider>
-            <ToastProvider>
-              <AppChrome>{children}</AppChrome>
-            </ToastProvider>
+            <ViewProvider>
+              <ToastProvider>
+                <AppChrome>{children}</AppChrome>
+              </ToastProvider>
+            </ViewProvider>
           </SearchProvider>
         </AuthProvider>
       </body>
