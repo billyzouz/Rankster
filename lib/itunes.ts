@@ -86,18 +86,20 @@ export async function getAlbumTracks(albumId: number): Promise<ItunesTrack[]> {
 export async function getArtistAllTracks(artistId: number, artistName: string): Promise<ItunesTrack[]> {
   const data = await itunesProxy<{
     results: Array<{
-      artistId: number;
+      wrapperType: string;
       trackName?: string;
       artworkUrl100?: string;
       trackViewUrl?: string;
       previewUrl?: string;
+      artistName: string;
     }>;
-  }>("artist-tracks", { term: artistName });
+  }>("artist-tracks", { id: String(artistId) });
+  const normalizedName = artistName.toLowerCase();
   const seen = new Set<string>();
   return data.results
-    // The artist-name search is fuzzy (features, covers, unrelated matches) — only keep
-    // tracks actually credited to this exact artist id.
-    .filter((r) => r.artistId === artistId && r.trackName)
+    // The lookup includes every track the artist appears on (features, other artists'
+    // releases) — only keep tracks actually credited to them, then dedupe by title.
+    .filter((r) => r.wrapperType === "track" && r.trackName && r.artistName.toLowerCase().includes(normalizedName))
     .filter((r) => {
       const key = r.trackName!.toLowerCase();
       if (seen.has(key)) return false;

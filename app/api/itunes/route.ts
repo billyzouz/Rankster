@@ -32,9 +32,9 @@ export async function GET(request: Request) {
       break;
     }
     case "artist-tracks": {
-      const term = searchParams.get("term");
-      if (!term) return NextResponse.json({ error: "Paramètre 'term' manquant." }, { status: 400 });
-      upstreamUrl = `${ITUNES_BASE}/search?term=${encodeURIComponent(term)}&entity=song&attribute=artistTerm&limit=200`;
+      const id = searchParams.get("id");
+      if (!id) return NextResponse.json({ error: "Paramètre 'id' manquant." }, { status: 400 });
+      upstreamUrl = `${ITUNES_BASE}/lookup?id=${encodeURIComponent(id)}&entity=song&limit=200`;
       break;
     }
     default:
