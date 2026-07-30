@@ -50,14 +50,14 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-zinc-800 bg-black px-4 sm:px-6">
+    <header className="sticky top-0 z-40 grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-zinc-800 bg-black px-4 sm:px-6">
       <Link href="/" className="flex shrink-0 items-center gap-2 text-white">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-icon.png" alt="" className="h-9 w-auto" />
         <span className="font-display text-2xl leading-none tracking-wide">Rankster</span>
       </Link>
 
-      <div className="flex flex-1 items-center justify-center gap-1 overflow-hidden rounded-lg bg-zinc-900 p-1">
+      <div className="flex items-center gap-1 overflow-hidden rounded-lg bg-zinc-900 p-1">
         <button
           onClick={() => goToView("all")}
           className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 sm:text-sm ${
@@ -82,7 +82,7 @@ export function Header() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-self-end gap-2">
         <div className="flex items-center">
           {searchOpen ? (
             <div className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-900 pl-2 pr-1">
