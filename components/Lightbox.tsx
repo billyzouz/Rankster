@@ -77,7 +77,7 @@ export function Lightbox({ item, onClose, onRename, readOnly = false }: Lightbox
                 rel="noopener noreferrer"
                 className="w-fit text-sm text-ember hover:underline"
               >
-                Écouter en entier sur Apple Music →
+                Écouter sur Deezer →
               </a>
             )}
           </div>

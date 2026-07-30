@@ -8,9 +8,9 @@ export interface TierItem {
   label: string;
   /** Public URL (Supabase Storage image, YouTube thumbnail, or album art) — always safe to render directly. */
   thumbnailUrl: string;
-  /** Original YouTube URL, or the Apple Music track page, used to open/play the item. */
+  /** Original YouTube URL, or the Deezer track page, used to open/play the item. */
   sourceUrl?: string;
-  /** 30-second audio preview, music items only. */
+  /** Short audio preview, music items only — often unavailable depending on the track. */
   previewUrl?: string;
   /** Storage object path, set for image items so the file can be deleted from the bucket. */
   storagePath?: string;

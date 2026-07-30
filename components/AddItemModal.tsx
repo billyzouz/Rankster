@@ -8,10 +8,10 @@ import {
   getArtistAlbums,
   getArtistAllTracks,
   searchArtists,
-  type ItunesAlbum,
-  type ItunesArtist,
-  type ItunesTrack,
-} from "@/lib/itunes";
+  type DeezerAlbum,
+  type DeezerArtist,
+  type DeezerTrack,
+} from "@/lib/deezer";
 import {
   extractYoutubePlaylistId,
   fetchYoutubeMeta,
@@ -39,7 +39,7 @@ interface AddItemModalProps {
   onAddYoutube: (meta: YoutubeMeta) => void;
   onAddYoutubePlaylist: (items: YoutubeMeta[]) => void;
   onAddGalleryImages: (items: GalleryImage[]) => void;
-  onAddMusicItems: (items: ItunesTrack[]) => void;
+  onAddMusicItems: (items: DeezerTrack[]) => void;
 }
 
 type Tab = "image" | "youtube" | "gallery" | "music";
@@ -76,10 +76,10 @@ export function AddItemModal({
   const [musicQuery, setMusicQuery] = useState("");
   const [musicLoading, setMusicLoading] = useState(false);
   const [musicError, setMusicError] = useState<string | null>(null);
-  const [artistResults, setArtistResults] = useState<ItunesArtist[] | null>(null);
-  const [selectedArtist, setSelectedArtist] = useState<ItunesArtist | null>(null);
-  const [albumResults, setAlbumResults] = useState<ItunesAlbum[] | null>(null);
-  const [musicTracks, setMusicTracks] = useState<ItunesTrack[] | null>(null);
+  const [artistResults, setArtistResults] = useState<DeezerArtist[] | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<DeezerArtist | null>(null);
+  const [albumResults, setAlbumResults] = useState<DeezerAlbum[] | null>(null);
+  const [musicTracks, setMusicTracks] = useState<DeezerTrack[] | null>(null);
   const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set());
   const [playingPreview, setPlayingPreview] = useState<number | null>(null);
 
@@ -262,7 +262,7 @@ export function AddItemModal({
     }
   }
 
-  function handleSelectArtist(artist: ItunesArtist) {
+  function handleSelectArtist(artist: DeezerArtist) {
     setSelectedArtist(artist);
     setArtistResults(null);
   }
@@ -272,7 +272,7 @@ export function AddItemModal({
     setMusicLoading(true);
     setMusicError(null);
     try {
-      setMusicTracks(await getArtistAllTracks(selectedArtist.id, selectedArtist.name));
+      setMusicTracks(await getArtistAllTracks(selectedArtist.id));
     } catch (err) {
       setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
@@ -285,7 +285,7 @@ export function AddItemModal({
     setMusicLoading(true);
     setMusicError(null);
     try {
-      setAlbumResults(await getArtistAlbums(selectedArtist.id, selectedArtist.name));
+      setAlbumResults(await getArtistAlbums(selectedArtist.id));
     } catch (err) {
       setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
@@ -293,7 +293,7 @@ export function AddItemModal({
     }
   }
 
-  async function handleSelectAlbum(album: ItunesAlbum) {
+  async function handleSelectAlbum(album: DeezerAlbum) {
     setAlbumResults(null);
     setMusicLoading(true);
     setMusicError(null);

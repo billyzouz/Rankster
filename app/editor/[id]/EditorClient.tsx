@@ -33,7 +33,7 @@ import { exportElementAsPng } from "@/lib/export";
 import { BACKGROUND_COLOR_SWATCHES, cloneTierList, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
 import type { Tier, TierItem, TierListDoc, Visibility } from "@/lib/types";
 import type { GalleryImage } from "@/lib/gallery";
-import type { ItunesTrack } from "@/lib/itunes";
+import type { DeezerTrack } from "@/lib/deezer";
 import type { YoutubeMeta } from "@/lib/youtube";
 
 const VISIBILITY_OPTIONS: Array<{ value: Visibility; label: string }> = [
@@ -322,7 +322,7 @@ export function EditorClient({ id }: EditorClientProps) {
     });
   }
 
-  function handleAddMusicItems(items: ItunesTrack[]) {
+  function handleAddMusicItems(items: DeezerTrack[]) {
     updateDoc((prev) => {
       const poolCount = prev.items.filter((i) => i.tierId === null).length;
       const newItems: TierItem[] = items.map((track, index) => ({
