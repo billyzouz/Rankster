@@ -331,6 +331,13 @@ export function AddItemModal({
     });
   }
 
+  function toggleSelectAllTracks() {
+    if (!musicTracks) return;
+    setSelectedTracks((prev) =>
+      prev.size === musicTracks.length ? new Set() : new Set(musicTracks.map((_, i) => i)),
+    );
+  }
+
   function handleConfirmMusic() {
     if (!musicTracks) return;
     const chosen = musicTracks.filter((_, i) => selectedTracks.has(i));
@@ -772,13 +779,23 @@ export function AddItemModal({
                       ? "Aucun résultat."
                       : "Clique pour sélectionner les musiques à ajouter :"}
                   </p>
-                  {albumResults === null && musicTracks.length > 0 && (
-                    <button
-                      onClick={handleBackFromTracks}
-                      className="text-xs text-zinc-400 hover:text-white"
-                    >
-                      ← retour
-                    </button>
+                  {musicTracks.length > 0 && (
+                    <div className="flex shrink-0 items-center gap-3">
+                      <button
+                        onClick={toggleSelectAllTracks}
+                        className="text-xs text-zinc-400 hover:text-white"
+                      >
+                        {selectedTracks.size === musicTracks.length ? "Tout désélectionner" : "Tout sélectionner"}
+                      </button>
+                      {albumResults === null && (
+                        <button
+                          onClick={handleBackFromTracks}
+                          className="text-xs text-zinc-400 hover:text-white"
+                        >
+                          ← retour
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">
