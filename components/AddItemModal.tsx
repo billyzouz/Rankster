@@ -254,14 +254,8 @@ export function AddItemModal({
           >
             YouTube
           </button>
-          <button
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
-              tab === "gallery" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
-            }`}
-            onClick={() => setTab("gallery")}
-          >
-            Galerie
-          </button>
+          {/* "Galerie" tab hidden for now — catalogue too thin per-anime to be worth surfacing yet.
+              Re-enable by adding this button back; the tab body and lib code are untouched. */}
         </div>
 
         {tab === "image" ? (
