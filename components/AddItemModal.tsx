@@ -4,6 +4,15 @@ import { useRef, useState } from "react";
 import { getAnimeCharacters, searchAnime, type AnimeResult } from "@/lib/anilist";
 import type { GalleryImage } from "@/lib/gallery";
 import {
+  getAlbumTracks,
+  getArtistAlbums,
+  getArtistAllTracks,
+  searchArtists,
+  type ItunesAlbum,
+  type ItunesArtist,
+  type ItunesTrack,
+} from "@/lib/itunes";
+import {
   extractYoutubePlaylistId,
   fetchYoutubeMeta,
   fetchYoutubePlaylistItems,
@@ -11,7 +20,7 @@ import {
   type YoutubeMeta,
 } from "@/lib/youtube";
 import { searchWikimediaImages } from "@/lib/wikimedia";
-import { CloseIcon } from "./icons";
+import { CloseIcon, PlayIcon } from "./icons";
 
 export interface PendingImageItem {
   file: File;
@@ -30,9 +39,10 @@ interface AddItemModalProps {
   onAddYoutube: (meta: YoutubeMeta) => void;
   onAddYoutubePlaylist: (items: YoutubeMeta[]) => void;
   onAddGalleryImages: (items: GalleryImage[]) => void;
+  onAddMusicItems: (items: ItunesTrack[]) => void;
 }
 
-type Tab = "image" | "youtube" | "gallery";
+type Tab = "image" | "youtube" | "gallery" | "music";
 type GalleryMode = "anime" | "wikimedia";
 
 export function AddItemModal({
@@ -42,6 +52,7 @@ export function AddItemModal({
   onAddYoutube,
   onAddYoutubePlaylist,
   onAddGalleryImages,
+  onAddMusicItems,
 }: AddItemModalProps) {
   const [tab, setTab] = useState<Tab>("image");
   const [isDragging, setIsDragging] = useState(false);
@@ -61,6 +72,16 @@ export function AddItemModal({
   const [selectedAnime, setSelectedAnime] = useState<AnimeResult | null>(null);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[] | null>(null);
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+
+  const [musicQuery, setMusicQuery] = useState("");
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicError, setMusicError] = useState<string | null>(null);
+  const [artistResults, setArtistResults] = useState<ItunesArtist[] | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<ItunesArtist | null>(null);
+  const [albumResults, setAlbumResults] = useState<ItunesAlbum[] | null>(null);
+  const [musicTracks, setMusicTracks] = useState<ItunesTrack[] | null>(null);
+  const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set());
+  const [playingPreview, setPlayingPreview] = useState<number | null>(null);
 
   if (!open) return null;
 
@@ -217,6 +238,107 @@ export function AddItemModal({
     resetGallery();
   }
 
+  function resetMusic() {
+    setMusicQuery("");
+    setArtistResults(null);
+    setSelectedArtist(null);
+    setAlbumResults(null);
+    setMusicTracks(null);
+    setSelectedTracks(new Set());
+    setMusicError(null);
+    setPlayingPreview(null);
+  }
+
+  async function handleMusicSearch() {
+    if (!musicQuery.trim()) return;
+    setMusicLoading(true);
+    setMusicError(null);
+    try {
+      setArtistResults(await searchArtists(musicQuery));
+    } catch (err) {
+      setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setMusicLoading(false);
+    }
+  }
+
+  function handleSelectArtist(artist: ItunesArtist) {
+    setSelectedArtist(artist);
+    setArtistResults(null);
+  }
+
+  async function handleChooseAllTracks() {
+    if (!selectedArtist) return;
+    setMusicLoading(true);
+    setMusicError(null);
+    try {
+      setMusicTracks(await getArtistAllTracks(selectedArtist.id, selectedArtist.name));
+    } catch (err) {
+      setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setMusicLoading(false);
+    }
+  }
+
+  async function handleChooseAlbumMode() {
+    if (!selectedArtist) return;
+    setMusicLoading(true);
+    setMusicError(null);
+    try {
+      setAlbumResults(await getArtistAlbums(selectedArtist.id, selectedArtist.name));
+    } catch (err) {
+      setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setMusicLoading(false);
+    }
+  }
+
+  async function handleSelectAlbum(album: ItunesAlbum) {
+    setAlbumResults(null);
+    setMusicLoading(true);
+    setMusicError(null);
+    setSelectedTracks(new Set());
+    try {
+      setMusicTracks(await getAlbumTracks(album.id));
+    } catch (err) {
+      setMusicError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setMusicLoading(false);
+    }
+  }
+
+  function handleBackFromTracks() {
+    setAlbumResults(null);
+    setMusicTracks(null);
+    setSelectedTracks(new Set());
+    setPlayingPreview(null);
+  }
+
+  function handleBackToArtistSearch() {
+    setSelectedArtist(null);
+    setAlbumResults(null);
+    setMusicTracks(null);
+    setSelectedTracks(new Set());
+    setPlayingPreview(null);
+  }
+
+  function toggleTrackSelection(index: number) {
+    setSelectedTracks((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  function handleConfirmMusic() {
+    if (!musicTracks) return;
+    const chosen = musicTracks.filter((_, i) => selectedTracks.has(i));
+    if (chosen.length === 0) return;
+    onAddMusicItems(chosen);
+    resetMusic();
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -256,6 +378,14 @@ export function AddItemModal({
           </button>
           {/* "Galerie" tab hidden for now — catalogue too thin per-anime to be worth surfacing yet.
               Re-enable by adding this button back; the tab body and lib code are untouched. */}
+          <button
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium transition ${
+              tab === "music" ? "bg-zinc-700 text-white shadow" : "text-zinc-400"
+            }`}
+            onClick={() => setTab("music")}
+          >
+            Musique
+          </button>
         </div>
 
         {tab === "image" ? (
@@ -427,7 +557,7 @@ export function AddItemModal({
               </div>
             )}
           </div>
-        ) : (
+        ) : tab === "gallery" ? (
           <div className="flex flex-col gap-3">
             <div className="flex gap-2 rounded-lg bg-zinc-800 p-1">
               <button
@@ -537,6 +667,171 @@ export function AddItemModal({
                     className="rounded-md bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember-hover disabled:opacity-50"
                   >
                     Ajouter {selectedImages.size} image{selectedImages.size > 1 ? "s" : ""}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {selectedArtist && (
+              <button
+                onClick={handleBackToArtistSearch}
+                className="self-start text-xs text-zinc-400 hover:text-white"
+              >
+                ← {selectedArtist.name}
+              </button>
+            )}
+
+            {!selectedArtist && (
+              <div className="flex gap-2">
+                <input
+                  value={musicQuery}
+                  onChange={(e) => setMusicQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleMusicSearch();
+                  }}
+                  placeholder="Nom d'un artiste..."
+                  className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-ember"
+                />
+                <button
+                  onClick={handleMusicSearch}
+                  disabled={musicLoading || !musicQuery.trim()}
+                  className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {musicLoading ? "..." : "Chercher"}
+                </button>
+              </div>
+            )}
+
+            {musicError && <p className="text-sm text-red-400">{musicError}</p>}
+
+            {artistResults && (
+              <div className="flex max-h-64 flex-col gap-1 overflow-y-auto pr-1">
+                {artistResults.length === 0 && <p className="text-sm text-zinc-500">Aucun résultat.</p>}
+                {artistResults.map((artist) => (
+                  <button
+                    key={artist.id}
+                    onClick={() => handleSelectArtist(artist)}
+                    className="rounded-md border border-zinc-700 bg-zinc-800/50 p-2 text-left text-sm text-white transition hover:border-ember"
+                  >
+                    {artist.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedArtist && !albumResults && !musicTracks && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleChooseAlbumMode}
+                  disabled={musicLoading}
+                  className="flex-1 rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {musicLoading ? "..." : "Un album"}
+                </button>
+                <button
+                  onClick={handleChooseAllTracks}
+                  disabled={musicLoading}
+                  className="flex-1 rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {musicLoading ? "..." : "Toutes ses musiques"}
+                </button>
+              </div>
+            )}
+
+            {albumResults && (
+              <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">
+                {albumResults.length === 0 && (
+                  <p className="col-span-4 text-sm text-zinc-500">Aucun album trouvé.</p>
+                )}
+                {albumResults.map((album) => (
+                  <button
+                    key={album.id}
+                    onClick={() => handleSelectAlbum(album)}
+                    className="flex flex-col overflow-hidden rounded-md border-2 border-zinc-700 text-left transition hover:border-ember"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={album.artworkUrl} alt="" className="aspect-square w-full object-cover" />
+                    <span
+                      className="truncate bg-zinc-900 px-1 py-0.5 text-[10px] text-zinc-300"
+                      title={album.name}
+                    >
+                      {album.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {musicTracks && (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">
+                    {musicTracks.length === 0
+                      ? "Aucun résultat."
+                      : "Clique pour sélectionner les musiques à ajouter :"}
+                  </p>
+                  {albumResults === null && musicTracks.length > 0 && (
+                    <button
+                      onClick={handleBackFromTracks}
+                      className="text-xs text-zinc-400 hover:text-white"
+                    >
+                      ← retour
+                    </button>
+                  )}
+                </div>
+                <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">
+                  {musicTracks.map((track, index) => (
+                    <button
+                      key={index}
+                      onClick={() => toggleTrackSelection(index)}
+                      className={`relative flex flex-col overflow-hidden rounded-md border-2 text-left transition ${
+                        selectedTracks.has(index)
+                          ? "border-ember"
+                          : "border-zinc-700 hover:border-zinc-500"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={track.thumbnailUrl} alt="" className="aspect-square w-full object-cover" />
+                      {track.previewUrl && (
+                        <span
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPlayingPreview(playingPreview === index ? null : index);
+                          }}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white"
+                        >
+                          <PlayIcon className="h-3 w-3" />
+                        </span>
+                      )}
+                      <span
+                        className="truncate bg-zinc-900 px-1 py-0.5 text-[10px] text-zinc-300"
+                        title={track.label}
+                      >
+                        {track.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {playingPreview !== null && musicTracks[playingPreview]?.previewUrl && (
+                  <audio
+                    key={playingPreview}
+                    src={musicTracks[playingPreview].previewUrl}
+                    autoPlay
+                    controls
+                    onEnded={() => setPlayingPreview(null)}
+                    className="h-8 w-full"
+                  />
+                )}
+                {musicTracks.length > 0 && (
+                  <button
+                    onClick={handleConfirmMusic}
+                    disabled={selectedTracks.size === 0}
+                    className="rounded-md bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember-hover disabled:opacity-50"
+                  >
+                    Ajouter {selectedTracks.size} musique{selectedTracks.size > 1 ? "s" : ""}
                   </button>
                 )}
               </>

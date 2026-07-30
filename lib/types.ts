@@ -1,4 +1,4 @@
-export type ItemType = "image" | "youtube";
+export type ItemType = "image" | "youtube" | "music";
 
 export type Visibility = "private" | "unlisted" | "public";
 
@@ -6,10 +6,12 @@ export interface TierItem {
   id: string;
   type: ItemType;
   label: string;
-  /** Public URL (Supabase Storage image, or YouTube thumbnail) — always safe to render directly. */
+  /** Public URL (Supabase Storage image, YouTube thumbnail, or album art) — always safe to render directly. */
   thumbnailUrl: string;
-  /** Original YouTube URL, used to play the video in the lightbox. */
+  /** Original YouTube URL, or the Apple Music track page, used to open/play the item. */
   sourceUrl?: string;
+  /** 30-second audio preview, music items only. */
+  previewUrl?: string;
   /** Storage object path, set for image items so the file can be deleted from the bucket. */
   storagePath?: string;
   /** null means the item sits in the unranked pool. */

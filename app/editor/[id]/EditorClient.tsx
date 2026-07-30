@@ -33,6 +33,7 @@ import { exportElementAsPng } from "@/lib/export";
 import { BACKGROUND_COLOR_SWATCHES, cloneTierList, DEFAULT_BACKGROUND_COLOR } from "@/lib/tierlist";
 import type { Tier, TierItem, TierListDoc, Visibility } from "@/lib/types";
 import type { GalleryImage } from "@/lib/gallery";
+import type { ItunesTrack } from "@/lib/itunes";
 import type { YoutubeMeta } from "@/lib/youtube";
 
 const VISIBILITY_OPTIONS: Array<{ value: Visibility; label: string }> = [
@@ -314,6 +315,23 @@ export function EditorClient({ id }: EditorClientProps) {
         type: "image",
         label: image.label,
         thumbnailUrl: image.thumbnailUrl,
+        tierId: null,
+        order: poolCount + index,
+      }));
+      return { ...prev, items: [...prev.items, ...newItems] };
+    });
+  }
+
+  function handleAddMusicItems(items: ItunesTrack[]) {
+    updateDoc((prev) => {
+      const poolCount = prev.items.filter((i) => i.tierId === null).length;
+      const newItems: TierItem[] = items.map((track, index) => ({
+        id: crypto.randomUUID(),
+        type: "music",
+        label: track.label,
+        thumbnailUrl: track.thumbnailUrl,
+        sourceUrl: track.sourceUrl,
+        previewUrl: track.previewUrl,
         tierId: null,
         order: poolCount + index,
       }));
@@ -861,6 +879,7 @@ export function EditorClient({ id }: EditorClientProps) {
         onAddYoutube={handleAddYoutube}
         onAddYoutubePlaylist={handleAddYoutubePlaylist}
         onAddGalleryImages={handleAddGalleryImages}
+        onAddMusicItems={handleAddMusicItems}
       />
 
       <Lightbox

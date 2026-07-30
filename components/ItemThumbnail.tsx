@@ -1,5 +1,5 @@
 import type { TierItem } from "@/lib/types";
-import { PlayIcon } from "./icons";
+import { MusicNoteIcon, PlayIcon } from "./icons";
 
 export function ItemThumbnail({ item }: { item: TierItem }) {
   return (
@@ -15,6 +15,11 @@ export function ItemThumbnail({ item }: { item: TierItem }) {
         {item.type === "youtube" && (
           <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white">
             <PlayIcon className="h-2.5 w-2.5" />
+          </span>
+        )}
+        {item.type === "music" && (
+          <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white">
+            <MusicNoteIcon className="h-2.5 w-2.5" />
           </span>
         )}
       </div>

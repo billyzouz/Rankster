@@ -24,6 +24,7 @@ export function Lightbox({ item, onClose, onRename, readOnly = false }: Lightbox
   if (!item) return null;
 
   const videoId = item.type === "youtube" && item.sourceUrl ? extractYoutubeId(item.sourceUrl) : null;
+  const isMusic = item.type === "music";
 
   return (
     <div
@@ -61,6 +62,25 @@ export function Lightbox({ item, onClose, onRename, readOnly = false }: Lightbox
             alt={item.label}
             className="max-h-[80vh] w-full rounded-lg object-contain"
           />
+        )}
+        {isMusic && (
+          <div className="mt-3 flex flex-col gap-2">
+            {item.previewUrl ? (
+              <audio src={item.previewUrl} controls autoPlay className="w-full" />
+            ) : (
+              <p className="text-sm text-white/60">Aucun extrait audio disponible pour ce titre.</p>
+            )}
+            {item.sourceUrl && (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit text-sm text-ember hover:underline"
+              >
+                Écouter en entier sur Apple Music →
+              </a>
+            )}
+          </div>
         )}
       </div>
     </div>
